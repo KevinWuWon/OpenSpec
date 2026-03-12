@@ -127,14 +127,13 @@ Then expected result happens`;
       expect(updatedContent).toContain('#### Scenario: Basic test');
     });
 
-    it('should allow REMOVED requirements when creating new spec file (issue #403)', async () => {
+    it('should error on REMOVED requirements when creating new spec file', async () => {
       const changeName = 'new-spec-with-removed';
       const changeDir = path.join(tempDir, 'openspec', 'changes', changeName);
       const changeSpecDir = path.join(changeDir, 'specs', 'gift-card');
       await fs.mkdir(changeSpecDir, { recursive: true });
-      
+
       // Create delta spec with both ADDED and REMOVED requirements
-      // This simulates refactoring where old fields are removed and new ones are added
       const specContent = `# Gift Card - Changes
 
 ## ADDED Requirements
@@ -151,30 +150,24 @@ The system SHALL support logo and backgroundColor fields for gift cards.
 ### Requirement: Image Field
 ### Requirement: Thumbnail Field`;
       await fs.writeFile(path.join(changeSpecDir, 'spec.md'), specContent);
-      
-      // Execute archive - should succeed with warning about REMOVED requirements
+
+      // Execute archive - should abort with error (REMOVED not allowed for new specs)
       await archiveCommand.execute(changeName, { yes: true, noValidate: true });
-      
-      // Verify warning was logged about REMOVED requirements being ignored
+
+      // Verify error message mentions only ADDED allowed for new specs
       expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('Warning: gift-card - 2 REMOVED requirement(s) ignored for new spec (nothing to remove).')
+        expect.stringContaining('gift-card: target spec does not exist; only ADDED blocks are allowed for new specs.')
       );
-      
-      // Verify spec was created with only ADDED requirements
+      expect(console.log).toHaveBeenCalledWith('Aborted. No files were changed.');
+
+      // Verify spec was NOT created
       const mainSpecPath = path.join(tempDir, 'openspec', 'specs', 'gift-card', 'spec.md');
-      const updatedContent = await fs.readFile(mainSpecPath, 'utf-8');
-      expect(updatedContent).toContain('# gift-card Specification');
-      expect(updatedContent).toContain('### Requirement: Logo and Background Color');
-      expect(updatedContent).toContain('#### Scenario: Display gift card with logo');
-      // REMOVED requirements should not be in the final spec
-      expect(updatedContent).not.toContain('### Requirement: Image Field');
-      expect(updatedContent).not.toContain('### Requirement: Thumbnail Field');
-      
-      // Verify change was archived successfully
+      await expect(fs.access(mainSpecPath)).rejects.toThrow();
+
+      // Verify change was NOT archived
       const archiveDir = path.join(tempDir, 'openspec', 'changes', 'archive');
       const archives = await fs.readdir(archiveDir);
-      expect(archives.length).toBeGreaterThan(0);
-      expect(archives.some(a => a.includes(changeName))).toBe(true);
+      expect(archives.some(a => a.includes(changeName))).toBe(false);
     });
 
     it('should still error on MODIFIED when creating new spec file', async () => {
@@ -202,14 +195,14 @@ Modified content.`;
       
       // Verify error message mentions MODIFIED not allowed for new specs
       expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('new-capability: target spec does not exist; only ADDED requirements are allowed for new specs. MODIFIED and RENAMED operations require an existing spec.')
+        expect.stringContaining('new-capability: target spec does not exist; only ADDED blocks are allowed for new specs.')
       );
       expect(console.log).toHaveBeenCalledWith('Aborted. No files were changed.');
-      
+
       // Verify spec was NOT created
       const mainSpecPath = path.join(tempDir, 'openspec', 'specs', 'new-capability', 'spec.md');
       await expect(fs.access(mainSpecPath)).rejects.toThrow();
-      
+
       // Verify change was NOT archived
       const archiveDir = path.join(tempDir, 'openspec', 'changes', 'archive');
       const archives = await fs.readdir(archiveDir);
@@ -221,7 +214,7 @@ Modified content.`;
       const changeDir = path.join(tempDir, 'openspec', 'changes', changeName);
       const changeSpecDir = path.join(changeDir, 'specs', 'another-capability');
       await fs.mkdir(changeSpecDir, { recursive: true });
-      
+
       // Create delta spec with RENAMED requirement (should fail for new spec)
       const specContent = `# Another Capability - Changes
 
@@ -234,13 +227,13 @@ New feature description.
 - FROM: \`### Requirement: Old Name\`
 - TO: \`### Requirement: New Name\``;
       await fs.writeFile(path.join(changeSpecDir, 'spec.md'), specContent);
-      
+
       // Execute archive - should abort with error message (not throw, but log and return)
       await archiveCommand.execute(changeName, { yes: true, noValidate: true });
-      
+
       // Verify error message mentions RENAMED not allowed for new specs
       expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('another-capability: target spec does not exist; only ADDED requirements are allowed for new specs. MODIFIED and RENAMED operations require an existing spec.')
+        expect.stringContaining('another-capability: target spec does not exist; only ADDED blocks are allowed for new specs.')
       );
       expect(console.log).toHaveBeenCalledWith('Aborted. No files were changed.');
       

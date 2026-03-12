@@ -17,3 +17,15 @@
 [refactor] Extracted `validateSectionDeltaPlan` and `applySectionDelta` helper functions in `specs-apply.ts` to apply validation and delta operations per-section rather than globally. The core merge algorithm (RENAMED → REMOVED → MODIFIED → ADDED) is unchanged.
 
 [note] `validator.ts` validation now runs per target section — duplicate/conflict checks are scoped within each section's namespace, matching the design doc's requirement that the same `###` block name can appear in different target sections.
+
+## Task 3: Update spec apply logic for multi-section deltas (2026-03-13)
+
+[fix] `buildSpecSkeleton` no longer hardcodes `## Requirements`. Now accepts `sectionNames: string[]` parameter and seeds only ADDED section targets in first-appearance order from delta parsing. Default is empty array for backwards compatibility.
+
+[fix] `applySectionDelta` now checks whether the target section exists in content before extracting. For MODIFIED/REMOVED/RENAMED, missing sections throw an error. Only ADDED can create new sections.
+
+[behavior-change] REMOVED operations on new specs now fail with an error instead of being warned and skipped. This aligns with the design doc rule: "For missing target specs, only ADDED can seed sections." Updated 3 archive tests to match.
+
+[fix] Error messages changed from "duplicate requirement" to "duplicate block" and from "only ADDED requirements" to "only ADDED blocks" throughout `specs-apply.ts`.
+
+[note] Added `sectionExistsInContent` helper that does a line-by-line check for `## SectionName` (case-insensitive) without needing regex escaping for section names.

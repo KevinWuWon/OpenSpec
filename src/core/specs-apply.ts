@@ -142,24 +142,19 @@ export async function buildUpdatedSpec(
   try {
     targetContent = await fs.readFile(update.target, 'utf-8');
   } catch {
-    // Target spec does not exist; MODIFIED and RENAMED are not allowed for new specs
-    const hasModified = sectionPlans.some(sp => sp.modified.length > 0);
-    const hasRenamed = sectionPlans.some(sp => sp.renamed.length > 0);
-    const totalRemoved = sectionPlans.reduce((sum, sp) => sum + sp.removed.length, 0);
-    if (hasModified || hasRenamed) {
+    // Target spec does not exist; only ADDED operations are allowed for new specs
+    const hasNonAdded = sectionPlans.some(
+      sp => sp.modified.length > 0 || sp.removed.length > 0 || sp.renamed.length > 0
+    );
+    if (hasNonAdded) {
       throw new Error(
-        `${specName}: target spec does not exist; only ADDED requirements are allowed for new specs. MODIFIED and RENAMED operations require an existing spec.`
-      );
-    }
-    if (totalRemoved > 0) {
-      console.log(
-        chalk.yellow(
-          `⚠️  Warning: ${specName} - ${totalRemoved} REMOVED requirement(s) ignored for new spec (nothing to remove).`
-        )
+        `${specName}: target spec does not exist; only ADDED blocks are allowed for new specs. MODIFIED, REMOVED, and RENAMED operations require an existing spec.`
       );
     }
     isNewSpec = true;
-    targetContent = buildSpecSkeleton(specName, changeName);
+    // Seed skeleton with only ADDED section targets, in first-appearance order
+    const addedSectionNames = Object.keys(plan.sections);
+    targetContent = buildSpecSkeleton(specName, changeName, addedSectionNames);
   }
 
   // Apply deltas per target section
@@ -197,10 +192,14 @@ export async function writeUpdatedSpec(
 
 /**
  * Build a skeleton spec for new capabilities.
+ * Seeds only the given section names (from ADDED targets) instead of hardcoding ## Requirements.
  */
-export function buildSpecSkeleton(specFolderName: string, changeName: string): string {
-  const titleBase = specFolderName;
-  return `# ${titleBase} Specification\n\n## Purpose\nTBD - created by archiving change ${changeName}. Update Purpose after archive.\n\n## Requirements\n`;
+export function buildSpecSkeleton(specFolderName: string, changeName: string, sectionNames: string[] = []): string {
+  let content = `# ${specFolderName} Specification\n\n## Purpose\nTBD - created by archiving change ${changeName}. Update Purpose after archive.\n`;
+  for (const name of sectionNames) {
+    content += `\n## ${name}\n`;
+  }
+  return content;
 }
 
 /**
@@ -324,13 +323,22 @@ export async function applySpecs(
 // Section-level validation and apply helpers
 // ---------------------------------------------------------------------------
 
+function sectionExistsInContent(content: string, sectionName: string): boolean {
+  const normalized = content.replace(/\r\n?/g, '\n');
+  const target = sectionName.trim().toLowerCase();
+  return normalized.split('\n').some(line => {
+    const m = line.match(/^##\s+(.+?)\s*$/);
+    return m !== null && m[1].trim().toLowerCase() === target;
+  });
+}
+
 function validateSectionDeltaPlan(specName: string, sp: SectionDeltaPlan): void {
   const addedNames = new Set<string>();
   for (const add of sp.added) {
     const name = normalizeBlockName(add.name);
     if (addedNames.has(name)) {
       throw new Error(
-        `${specName} validation failed - duplicate requirement in ADDED for header "### ${add.name}"`
+        `${specName} validation failed - duplicate block in ADDED for header "### ${add.name}"`
       );
     }
     addedNames.add(name);
@@ -340,7 +348,7 @@ function validateSectionDeltaPlan(specName: string, sp: SectionDeltaPlan): void 
     const name = normalizeBlockName(mod.name);
     if (modifiedNames.has(name)) {
       throw new Error(
-        `${specName} validation failed - duplicate requirement in MODIFIED for header "### ${mod.name}"`
+        `${specName} validation failed - duplicate block in MODIFIED for header "### ${mod.name}"`
       );
     }
     modifiedNames.add(name);
@@ -350,7 +358,7 @@ function validateSectionDeltaPlan(specName: string, sp: SectionDeltaPlan): void 
     const name = normalizeBlockName(rem);
     if (removedNamesSet.has(name)) {
       throw new Error(
-        `${specName} validation failed - duplicate requirement in REMOVED for header "### ${rem}"`
+        `${specName} validation failed - duplicate block in REMOVED for header "### ${rem}"`
       );
     }
     removedNamesSet.add(name);
@@ -400,7 +408,7 @@ function validateSectionDeltaPlan(specName: string, sp: SectionDeltaPlan): void 
   if (conflicts.length > 0) {
     const c = conflicts[0];
     throw new Error(
-      `${specName} validation failed - requirement present in multiple sections (${c.a} and ${c.b}) for header "### ${c.name}"`
+      `${specName} validation failed - block present in multiple sections (${c.a} and ${c.b}) for header "### ${c.name}"`
     );
   }
 }
@@ -411,6 +419,17 @@ function applySectionDelta(
   specName: string,
   isNewSpec: boolean
 ): string {
+  // Check if section exists in content before extracting
+  const sectionFound = sectionExistsInContent(content, sp.targetSection);
+  if (!sectionFound) {
+    const hasNonAdded = sp.modified.length > 0 || sp.removed.length > 0 || sp.renamed.length > 0;
+    if (hasNonAdded) {
+      throw new Error(
+        `${specName}: section "## ${sp.targetSection}" not found; MODIFIED, REMOVED, and RENAMED require an existing section. Only ADDED can create new sections.`
+      );
+    }
+  }
+
   const parts = extractSection(content, sp.targetSection);
   const nameToBlock = new Map<string, Block>();
   for (const block of parts.bodyBlocks) {
