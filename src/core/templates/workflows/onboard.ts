@@ -53,7 +53,7 @@ I'll walk you through a complete change cycle—from idea to implementation—us
 1. Pick a small, real task in your codebase
 2. Explore the problem briefly
 3. Create a change (the container for our work)
-4. Build the artifacts: proposal → specs → design → tasks
+4. Build the artifacts: proposal → design → tasks
 5. Implement the tasks
 6. Archive the completed change
 
@@ -193,10 +193,10 @@ Created: \`openspec/changes/<name>/\`
 The folder structure:
 \`\`\`
 openspec/changes/<name>/
-├── proposal.md    ← Why we're doing this (empty, we'll fill it)
-├── design.md      ← How we'll build it (empty)
-├── specs/         ← Detailed requirements (empty)
-└── tasks.md       ← Implementation checklist (empty)
+├── proposal.md    ← Problem/Success Criteria (empty, we'll fill it)
+├── design.md      ← Architecture/Detailed Design (empty)
+├── tasks.md       ← Numbered task sections (empty)
+└── specs/         ← Delta specs (created later)
 \`\`\`
 
 Now let's fill in the first artifact—the proposal.
@@ -210,7 +210,7 @@ Now let's fill in the first artifact—the proposal.
 \`\`\`
 ## The Proposal
 
-The proposal captures **why** we're making this change and **what** it involves at a high level. It's the "elevator pitch" for the work.
+The proposal captures the problem we're solving and what success looks like. It uses Problem/Constraints/Success Criteria/Non-goals sections.
 
 I'll draft one based on our task.
 \`\`\`
@@ -222,26 +222,21 @@ Here's a draft proposal:
 
 ---
 
-## Why
+## Problem
 
-[1-2 sentences explaining the problem/opportunity]
+[What's broken or missing. Why it matters.]
 
-## What Changes
+## Constraints
 
-[Bullet points of what will be different]
+[Hard boundaries. Technical limits. What can't change.]
 
-## Capabilities
+## Success Criteria
 
-### New Capabilities
-- \`<capability-name>\`: [brief description]
+[Observable outcomes when done. User-visible statements.]
 
-### Modified Capabilities
-<!-- If modifying existing behavior -->
+## Non-goals
 
-## Impact
-
-- \`src/path/to/file.ts\`: [what changes]
-- [other files if applicable]
+[What we're explicitly not building.]
 
 ---
 
@@ -257,67 +252,20 @@ openspec instructions proposal --change "<name>" --json
 Then write the content to \`openspec/changes/<name>/proposal.md\`.
 
 \`\`\`
-Proposal saved. This is your "why" document—you can always come back and refine it as understanding evolves.
+Proposal saved. This captures the problem and success criteria—you can always refine it as understanding evolves.
 
-Next up: specs.
+Next up: design.
 \`\`\`
 
 ---
 
-## Phase 6: Specs
-
-**EXPLAIN:**
-\`\`\`
-## Specs
-
-Specs define **what** we're building in precise, testable terms. They use a requirement/scenario format that makes expected behavior crystal clear.
-
-For a small task like this, we might only need one spec file.
-\`\`\`
-
-**DO:** Create the spec file:
-\`\`\`bash
-# Unix/macOS
-mkdir -p openspec/changes/<name>/specs/<capability-name>
-# Windows (PowerShell)
-# New-Item -ItemType Directory -Force -Path "openspec/changes/<name>/specs/<capability-name>"
-\`\`\`
-
-Draft the spec content:
-
-\`\`\`
-Here's the spec:
-
----
-
-## ADDED Requirements
-
-### Requirement: <Name>
-
-<Description of what the system should do>
-
-#### Scenario: <Scenario name>
-
-- **WHEN** <trigger condition>
-- **THEN** <expected outcome>
-- **AND** <additional outcome if needed>
-
----
-
-This format—WHEN/THEN/AND—makes requirements testable. You can literally read them as test cases.
-\`\`\`
-
-Save to \`openspec/changes/<name>/specs/<capability>/spec.md\`.
-
----
-
-## Phase 7: Design
+## Phase 6: Design
 
 **EXPLAIN:**
 \`\`\`
 ## Design
 
-The design captures **how** we'll build it—technical decisions, tradeoffs, approach.
+The design captures **how** we'll build it—architecture, decisions, and approach. It uses Overview/Architecture/Detailed Design/Non-goals sections.
 
 For small changes, this might be brief. That's fine—not every change needs deep design discussion.
 \`\`\`
@@ -329,23 +277,21 @@ Here's the design:
 
 ---
 
-## Context
+## Overview
 
-[Brief context about the current state]
+[One paragraph. What and why.]
 
-## Goals / Non-Goals
+## Architecture
 
-**Goals:**
-- [What we're trying to achieve]
+[Diagrams, data flow, system structure.]
 
-**Non-Goals:**
-- [What's explicitly out of scope]
+## Detailed Design
 
-## Decisions
+[Organized by concept. Data models, APIs, integration points.]
 
-### Decision 1: [Key decision]
+## Non-goals
 
-[Explanation of approach and rationale]
+[What this design explicitly avoids.]
 
 ---
 
@@ -356,36 +302,43 @@ Save to \`openspec/changes/<name>/design.md\`.
 
 ---
 
-## Phase 8: Tasks
+## Phase 7: Tasks
 
 **EXPLAIN:**
 \`\`\`
 ## Tasks
 
-Finally, we break the work into implementation tasks—checkboxes that drive the apply phase.
+Finally, we break the work into numbered task sections that drive the apply phase.
 
-These should be small, clear, and in logical order.
+Each task has a description, file list, and acceptance criteria.
 \`\`\`
 
-**DO:** Generate tasks based on specs and design:
+**DO:** Generate tasks based on design:
 
 \`\`\`
 Here are the implementation tasks:
 
 ---
 
-## 1. [Category or file]
+### Task 1: [Name] ([feature|refactoring])
 
-- [ ] 1.1 [Specific task]
-- [ ] 1.2 [Specific task]
+[What to implement, where, and why.]
 
-## 2. Verify
+**Files:** [paths]
+**Acceptance criteria:**
+- [criterion]
 
-- [ ] 2.1 [Verification step]
+### Task 2: Verify ([refactoring])
+
+[Verification steps.]
+
+**Files:** [paths]
+**Acceptance criteria:**
+- [criterion]
 
 ---
 
-Each checkbox becomes a unit of work in the apply phase. Ready to implement?
+Each task section becomes a unit of work in the apply phase. When complete, it gets a \`— done\` suffix. Ready to implement?
 \`\`\`
 
 **PAUSE** - Wait for user to confirm they're ready to implement.
@@ -394,21 +347,21 @@ Save to \`openspec/changes/<name>/tasks.md\`.
 
 ---
 
-## Phase 9: Apply (Implementation)
+## Phase 8: Apply (Implementation)
 
 **EXPLAIN:**
 \`\`\`
 ## Implementation
 
-Now we implement each task, checking them off as we go. I'll announce each one and occasionally note how the specs/design informed the approach.
+Now we implement each task, marking them done as we go. I'll announce each one and occasionally note how the design informed the approach.
 \`\`\`
 
 **DO:** For each task:
 
 1. Announce: "Working on task N: [description]"
 2. Implement the change in the codebase
-3. Reference specs/design naturally: "The spec says X, so I'm doing Y"
-4. Mark complete in tasks.md: \`- [ ]\` → \`- [x]\`
+3. Reference design naturally: "The design says X, so I'm doing Y"
+4. Mark complete by appending \`— done\` to the task heading
 5. Brief status: "✓ Task N complete"
 
 Keep narration light—don't over-explain every line of code.
@@ -419,16 +372,16 @@ After all tasks:
 ## Implementation Complete
 
 All tasks done:
-- [x] Task 1
-- [x] Task 2
-- [x] ...
+- Task 1 — done
+- Task 2 — done
+- ...
 
 The change is implemented! One more step—let's archive it.
 \`\`\`
 
 ---
 
-## Phase 10: Archive
+## Phase 9: Archive
 
 **EXPLAIN:**
 \`\`\`
@@ -453,7 +406,7 @@ The change is now part of your project's history. The code is in your codebase, 
 
 ---
 
-## Phase 11: Recap & Next Steps
+## Phase 10: Recap & Next Steps
 
 \`\`\`
 ## Congratulations!
@@ -462,12 +415,11 @@ You just completed a full OpenSpec cycle:
 
 1. **Explore** - Thought through the problem
 2. **New** - Created a change container
-3. **Proposal** - Captured WHY
-4. **Specs** - Defined WHAT in detail
-5. **Design** - Decided HOW
-6. **Tasks** - Broke it into steps
-7. **Apply** - Implemented the work
-8. **Archive** - Preserved the record
+3. **Proposal** - Captured the Problem and Success Criteria
+4. **Design** - Decided HOW (Architecture/Detailed Design)
+5. **Tasks** - Broke it into numbered task sections
+6. **Apply** - Implemented the work
+7. **Archive** - Preserved the record
 
 This same rhythm works for any size change—a small fix or a major feature.
 

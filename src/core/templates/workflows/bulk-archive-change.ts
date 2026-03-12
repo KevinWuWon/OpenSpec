@@ -42,12 +42,12 @@ This skill allows you to batch-archive changes, handling spec conflicts intellig
       - Note which artifacts are \`done\` vs other states
 
    b. **Task completion** - Read \`openspec/changes/<name>/tasks.md\`
-      - Count \`- [ ]\` (incomplete) vs \`- [x]\` (complete)
+      - Count tasks by parsing \`### Task N:\` headings — tasks with \`— done\` suffix are complete, others are incomplete
       - If no tasks file exists, note as "No tasks"
 
    c. **Delta specs** - Check \`openspec/changes/<name>/specs/\` directory
       - List which capability specs exist
-      - For each, extract requirement names (lines matching \`### Requirement: <name>\`)
+      - For each, extract block names (lines matching \`### Name\` headings)
 
 4. **Detect spec conflicts**
 
@@ -289,12 +289,12 @@ This skill allows you to batch-archive changes, handling spec conflicts intellig
       - Note which artifacts are \`done\` vs other states
 
    b. **Task completion** - Read \`openspec/changes/<name>/tasks.md\`
-      - Count \`- [ ]\` (incomplete) vs \`- [x]\` (complete)
+      - Count tasks by parsing \`### Task N:\` headings — tasks with \`— done\` suffix are complete, others are incomplete
       - If no tasks file exists, note as "No tasks"
 
    c. **Delta specs** - Check \`openspec/changes/<name>/specs/\` directory
       - List which capability specs exist
-      - For each, extract requirement names (lines matching \`### Requirement: <name>\`)
+      - For each, extract block names (lines matching \`### Name\` headings)
 
 4. **Detect spec conflicts**
 

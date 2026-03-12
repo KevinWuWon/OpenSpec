@@ -31,10 +31,10 @@ This is an **agent-driven** operation - you will read delta specs and directly e
    Look for delta spec files in \`openspec/changes/<name>/specs/*/spec.md\`.
 
    Each delta spec file contains sections like:
-   - \`## ADDED Requirements\` - New requirements to add
-   - \`## MODIFIED Requirements\` - Changes to existing requirements
-   - \`## REMOVED Requirements\` - Requirements to remove
-   - \`## RENAMED Requirements\` - Requirements to rename (FROM:/TO: format)
+   - \`## ADDED {Section}\` - New blocks to add to a section
+   - \`## MODIFIED {Section}\` - Changes to existing blocks
+   - \`## REMOVED {Section}\` - Blocks to remove
+   - \`## RENAMED {Section}\` - Blocks to rename (FROM:/TO: format)
 
    If no delta specs found, inform user and stop.
 
@@ -48,28 +48,25 @@ This is an **agent-driven** operation - you will read delta specs and directly e
 
    c. **Apply changes intelligently**:
 
-      **ADDED Requirements:**
-      - If requirement doesn't exist in main spec → add it
-      - If requirement already exists → update it to match (treat as implicit MODIFIED)
+      **ADDED blocks:**
+      - If block doesn't exist in main spec → add it to the target section
+      - If block already exists → update it to match (treat as implicit MODIFIED)
 
-      **MODIFIED Requirements:**
-      - Find the requirement in main spec
-      - Apply the changes - this can be:
-        - Adding new scenarios (don't need to copy existing ones)
-        - Modifying existing scenarios
-        - Changing the requirement description
-      - Preserve scenarios/content not mentioned in the delta
+      **MODIFIED blocks:**
+      - Find the block in main spec by \`### Name\` heading
+      - Apply the changes — update the prose content
+      - Preserve content not mentioned in the delta
 
-      **REMOVED Requirements:**
-      - Remove the entire requirement block from main spec
+      **REMOVED blocks:**
+      - Remove the entire \`### Name\` block from main spec
 
-      **RENAMED Requirements:**
-      - Find the FROM requirement, rename to TO
+      **RENAMED blocks:**
+      - Find the FROM block, rename to TO (uses \`FROM: ### Old Name\` / \`TO: ### New Name\` format)
 
    d. **Create new main spec** if capability doesn't exist yet:
       - Create \`openspec/specs/<capability>/spec.md\`
-      - Add Purpose section (can be brief, mark as TBD)
-      - Add Requirements section with the ADDED requirements
+      - Add sections matching the ADDED section names from the delta
+      - Populate with the ADDED blocks
 
 4. **Show summary**
 
@@ -80,36 +77,31 @@ This is an **agent-driven** operation - you will read delta specs and directly e
 **Delta Spec Format Reference**
 
 \`\`\`markdown
-## ADDED Requirements
+## ADDED Behavior
 
-### Requirement: New Feature
-The system SHALL do something new.
+### Two-Factor Auth
+Users can enable TOTP-based two-factor authentication.
+When enabled, login requires a valid TOTP code after password verification.
 
-#### Scenario: Basic case
-- **WHEN** user does X
-- **THEN** system does Y
+## MODIFIED Behavior
 
-## MODIFIED Requirements
+### Login
+Updated prose describing modified behavior...
 
-### Requirement: Existing Feature
-#### Scenario: New scenario to add
-- **WHEN** user does A
-- **THEN** system does B
+## REMOVED Behavior
 
-## REMOVED Requirements
+### Legacy SSO
 
-### Requirement: Deprecated Feature
+## RENAMED Behavior
 
-## RENAMED Requirements
-
-- FROM: \`### Requirement: Old Name\`
-- TO: \`### Requirement: New Name\`
+FROM: ### Old Name
+TO: ### New Name
 \`\`\`
 
 **Key Principle: Intelligent Merging**
 
 Unlike programmatic merging, you can apply **partial updates**:
-- To add a scenario, just include that scenario under MODIFIED - don't copy existing scenarios
+- To update a block, just include the changed prose under MODIFIED
 - The delta represents *intent*, not a wholesale replacement
 - Use your judgment to merge changes sensibly
 
@@ -121,12 +113,12 @@ Unlike programmatic merging, you can apply **partial updates**:
 Updated main specs:
 
 **<capability-1>**:
-- Added requirement: "New Feature"
-- Modified requirement: "Existing Feature" (added 1 scenario)
+- Added block: "New Feature"
+- Modified block: "Existing Feature"
 
 **<capability-2>**:
 - Created new spec file
-- Added requirement: "Another Feature"
+- Added block: "Another Feature"
 
 Main specs are now updated. The change remains active - archive when implementation is complete.
 \`\`\`
@@ -170,10 +162,10 @@ This is an **agent-driven** operation - you will read delta specs and directly e
    Look for delta spec files in \`openspec/changes/<name>/specs/*/spec.md\`.
 
    Each delta spec file contains sections like:
-   - \`## ADDED Requirements\` - New requirements to add
-   - \`## MODIFIED Requirements\` - Changes to existing requirements
-   - \`## REMOVED Requirements\` - Requirements to remove
-   - \`## RENAMED Requirements\` - Requirements to rename (FROM:/TO: format)
+   - \`## ADDED {Section}\` - New blocks to add to a section
+   - \`## MODIFIED {Section}\` - Changes to existing blocks
+   - \`## REMOVED {Section}\` - Blocks to remove
+   - \`## RENAMED {Section}\` - Blocks to rename (FROM:/TO: format)
 
    If no delta specs found, inform user and stop.
 
@@ -187,28 +179,25 @@ This is an **agent-driven** operation - you will read delta specs and directly e
 
    c. **Apply changes intelligently**:
 
-      **ADDED Requirements:**
-      - If requirement doesn't exist in main spec → add it
-      - If requirement already exists → update it to match (treat as implicit MODIFIED)
+      **ADDED blocks:**
+      - If block doesn't exist in main spec → add it to the target section
+      - If block already exists → update it to match (treat as implicit MODIFIED)
 
-      **MODIFIED Requirements:**
-      - Find the requirement in main spec
-      - Apply the changes - this can be:
-        - Adding new scenarios (don't need to copy existing ones)
-        - Modifying existing scenarios
-        - Changing the requirement description
-      - Preserve scenarios/content not mentioned in the delta
+      **MODIFIED blocks:**
+      - Find the block in main spec by \`### Name\` heading
+      - Apply the changes — update the prose content
+      - Preserve content not mentioned in the delta
 
-      **REMOVED Requirements:**
-      - Remove the entire requirement block from main spec
+      **REMOVED blocks:**
+      - Remove the entire \`### Name\` block from main spec
 
-      **RENAMED Requirements:**
-      - Find the FROM requirement, rename to TO
+      **RENAMED blocks:**
+      - Find the FROM block, rename to TO (uses \`FROM: ### Old Name\` / \`TO: ### New Name\` format)
 
    d. **Create new main spec** if capability doesn't exist yet:
       - Create \`openspec/specs/<capability>/spec.md\`
-      - Add Purpose section (can be brief, mark as TBD)
-      - Add Requirements section with the ADDED requirements
+      - Add sections matching the ADDED section names from the delta
+      - Populate with the ADDED blocks
 
 4. **Show summary**
 
@@ -219,36 +208,31 @@ This is an **agent-driven** operation - you will read delta specs and directly e
 **Delta Spec Format Reference**
 
 \`\`\`markdown
-## ADDED Requirements
+## ADDED Behavior
 
-### Requirement: New Feature
-The system SHALL do something new.
+### Two-Factor Auth
+Users can enable TOTP-based two-factor authentication.
+When enabled, login requires a valid TOTP code after password verification.
 
-#### Scenario: Basic case
-- **WHEN** user does X
-- **THEN** system does Y
+## MODIFIED Behavior
 
-## MODIFIED Requirements
+### Login
+Updated prose describing modified behavior...
 
-### Requirement: Existing Feature
-#### Scenario: New scenario to add
-- **WHEN** user does A
-- **THEN** system does B
+## REMOVED Behavior
 
-## REMOVED Requirements
+### Legacy SSO
 
-### Requirement: Deprecated Feature
+## RENAMED Behavior
 
-## RENAMED Requirements
-
-- FROM: \`### Requirement: Old Name\`
-- TO: \`### Requirement: New Name\`
+FROM: ### Old Name
+TO: ### New Name
 \`\`\`
 
 **Key Principle: Intelligent Merging**
 
 Unlike programmatic merging, you can apply **partial updates**:
-- To add a scenario, just include that scenario under MODIFIED - don't copy existing scenarios
+- To update a block, just include the changed prose under MODIFIED
 - The delta represents *intent*, not a wholesale replacement
 - Use your judgment to merge changes sensibly
 
@@ -260,12 +244,12 @@ Unlike programmatic merging, you can apply **partial updates**:
 Updated main specs:
 
 **<capability-1>**:
-- Added requirement: "New Feature"
-- Modified requirement: "Existing Feature" (added 1 scenario)
+- Added block: "New Feature"
+- Modified block: "Existing Feature"
 
 **<capability-2>**:
 - Created new spec file
-- Added requirement: "Another Feature"
+- Added block: "Another Feature"
 
 Main specs are now updated. The change remains active - archive when implementation is complete.
 \`\`\`

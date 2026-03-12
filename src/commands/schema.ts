@@ -928,72 +928,57 @@ export function registerSchemaCommand(program: Command): void {
 function createDefaultTemplate(artifactId: string): string {
   switch (artifactId) {
     case 'proposal':
-      return `## Why
+      return `## Problem
 
-<!-- Describe the motivation for this change -->
+<!-- What's broken or missing. Why it matters. -->
 
-## What Changes
+## Constraints
 
-<!-- Describe what will change -->
+<!-- Hard boundaries. Technical limits. What can't change. -->
 
-## Capabilities
+## Success Criteria
 
-### New Capabilities
-<!-- List new capabilities -->
+<!-- Observable outcomes when done. User-visible statements. -->
 
-### Modified Capabilities
-<!-- List modified capabilities -->
+## Non-goals
 
-## Impact
-
-<!-- Describe the impact on existing functionality -->
+<!-- What we're explicitly not building. -->
 `;
 
     case 'specs':
-      return `## ADDED Requirements
+      return `## ADDED Behavior
 
-### Requirement: Example requirement
+### Example block
 
-Description of the requirement.
-
-#### Scenario: Example scenario
-- **WHEN** some condition
-- **THEN** some outcome
+Describe the behavior in plain prose.
 `;
 
     case 'design':
-      return `## Context
+      return `## Overview
 
-<!-- Background and context -->
+<!-- One paragraph. What and why. -->
 
-## Goals / Non-Goals
+## Architecture
 
-**Goals:**
-<!-- List goals -->
+<!-- Diagrams, data flow, system structure. -->
 
-**Non-Goals:**
-<!-- List non-goals -->
+## Detailed Design
 
-## Decisions
+<!-- Organized by concept. Data models, APIs, integration points. -->
 
-### 1. Decision Name
+## Non-goals
 
-Description and rationale.
-
-**Alternatives considered:**
-- Alternative 1: Rejected because...
-
-## Risks / Trade-offs
-
-<!-- List risks and trade-offs -->
+<!-- What this design explicitly avoids. -->
 `;
 
     case 'tasks':
-      return `## Implementation Tasks
+      return `### Task 1: <!-- Name --> (<!-- feature|refactoring -->)
 
-- [ ] Task 1
-- [ ] Task 2
-- [ ] Task 3
+<!-- What to implement, where, and why. -->
+
+**Files:** <!-- paths -->
+**Acceptance criteria:**
+- <!-- criterion -->
 `;
 
     default:

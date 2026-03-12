@@ -283,8 +283,8 @@ export class ChangeCommand {
 
   private printNextSteps(): void {
     const bullets: string[] = [];
-    bullets.push('- Ensure change has deltas in specs/: use headers ## ADDED/MODIFIED/REMOVED/RENAMED Requirements');
-    bullets.push('- Each requirement MUST include at least one #### Scenario: block');
+    bullets.push('- Ensure change has deltas in specs/: use headers ## ADDED/MODIFIED/REMOVED/RENAMED {Section}');
+    bullets.push('- Each block needs a ### heading with prose content');
     bullets.push('- Debug parsed deltas: openspec change show <id> --json --deltas-only');
     console.error('Next steps:');
     bullets.forEach(b => console.error(`  ${b}`));
