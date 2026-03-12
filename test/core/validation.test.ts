@@ -4,7 +4,6 @@ import path from 'path';
 import { Validator } from '../../src/core/validation/validator.js';
 import {
   BlockSchema,
-  RequirementSchema,
   SpecSchema,
   ChangeSchema,
   DeltaSchema
@@ -31,77 +30,66 @@ describe('Validation Schemas', () => {
     });
   });
 
-  describe('RequirementSchema (backward compat)', () => {
-    it('should accept requirement with no scenarios', () => {
-      const result = RequirementSchema.safeParse({
-        text: 'The system provides user authentication',
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it('should accept requirement without SHALL/MUST', () => {
-      const result = RequirementSchema.safeParse({
-        text: 'Users can log in',
-        scenarios: [],
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it('should accept requirement with scenarios (backward compat)', () => {
-      const result = RequirementSchema.safeParse({
-        text: 'The system provides authentication',
-        scenarios: [{ rawText: 'Given a user\nWhen they login\nThen authenticated' }],
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it('should reject requirement with empty text', () => {
-      const result = RequirementSchema.safeParse({ text: '' });
-      expect(result.success).toBe(false);
-    });
-  });
-
   describe('SpecSchema', () => {
-    it('should validate a spec with prose blocks (no SHALL/MUST)', () => {
+    it('should validate a spec with sections and blocks', () => {
       const spec = {
         name: 'user-auth',
-        overview: 'This spec defines user authentication behavior',
-        requirements: [
-          { text: 'Users can log in with email and password' },
-        ],
+        sections: {
+          'Behavior': {
+            blocks: [
+              { name: 'Login', text: 'Users can log in with email and password' },
+            ],
+          },
+        },
       };
       const result = SpecSchema.safeParse(spec);
       expect(result.success).toBe(true);
     });
 
-    it('should validate a spec with blocks that have no scenarios', () => {
+    it('should validate a spec with multiple sections', () => {
       const spec = {
         name: 'user-auth',
-        overview: 'This spec defines user authentication behavior',
-        requirements: [
-          { text: 'Users can log in' },
-          { text: 'Users can reset their password' },
-        ],
+        sections: {
+          'Behavior': {
+            blocks: [
+              { name: 'Login', text: 'Users can log in' },
+              { name: 'Logout', text: 'Users can log out' },
+            ],
+          },
+          'Data Model': {
+            blocks: [
+              { name: 'Sessions', text: 'Session tracking' },
+            ],
+          },
+        },
       };
       const result = SpecSchema.safeParse(spec);
       expect(result.success).toBe(true);
     });
 
-    it('should reject spec without any blocks', () => {
+    it('should accept spec with sections that have no blocks', () => {
       const spec = {
         name: 'user-auth',
-        overview: 'This spec defines user authentication behavior',
-        requirements: [],
+        sections: {
+          'Overview': { blocks: [] },
+          'Behavior': {
+            blocks: [{ name: 'Login', text: 'Users log in' }],
+          },
+        },
       };
       const result = SpecSchema.safeParse(spec);
-      expect(result.success).toBe(false);
+      expect(result.success).toBe(true);
     });
   });
 
   describe('ChangeSchema', () => {
-    it('should accept a change with empty deltas (pre-spec state)', () => {
+    it('should accept a change with all proposal sections and empty deltas', () => {
       const change = {
         name: 'add-user-auth',
+        problem: 'Need authentication',
+        constraints: 'Must use OAuth',
+        successCriteria: 'Users can log in',
+        nonGoals: 'Not doing SSO',
         deltas: [],
       };
       const result = ChangeSchema.safeParse(change);
@@ -111,6 +99,10 @@ describe('Validation Schemas', () => {
     it('should accept a change with deltas', () => {
       const change = {
         name: 'add-user-auth',
+        problem: 'Need auth',
+        constraints: 'OAuth only',
+        successCriteria: 'Login works',
+        nonGoals: 'No SSO',
         deltas: [
           {
             spec: 'user-auth',
@@ -131,6 +123,10 @@ describe('Validation Schemas', () => {
       }));
       const change = {
         name: 'massive-change',
+        problem: 'Big problem',
+        constraints: 'None',
+        successCriteria: 'Everything works',
+        nonGoals: 'Nothing',
         deltas,
       };
       const result = ChangeSchema.safeParse(change);
@@ -138,6 +134,15 @@ describe('Validation Schemas', () => {
       if (!result.success) {
         expect(result.error.issues[0].message).toBe('Consider splitting changes with more than 10 deltas');
       }
+    });
+
+    it('should reject change missing required proposal fields', () => {
+      const change = {
+        name: 'add-user-auth',
+        deltas: [],
+      };
+      const result = ChangeSchema.safeParse(change);
+      expect(result.success).toBe(false);
     });
   });
 });
@@ -154,13 +159,10 @@ describe('Validator', () => {
   });
 
   describe('validateSpec', () => {
-    it('should validate a spec with prose blocks (no SHALL/MUST, no scenarios)', async () => {
+    it('should validate a spec with prose blocks in any ## section', async () => {
       const specContent = `# User Authentication Spec
 
-## Purpose
-This specification defines the behavior for user authentication in the system.
-
-## Requirements
+## Behavior
 
 ### Login with email
 Users can log in using their email address and password.
@@ -178,13 +180,32 @@ Users can request a password reset link via email.`;
       expect(report.summary.errors).toBe(0);
     });
 
-    it('should detect missing overview section', async () => {
-      const specContent = `# User Authentication Spec
+    it('should validate a spec with multiple ## sections', async () => {
+      const specContent = `# Full Spec
 
-## Requirements
+## Behavior
 
 ### Login
-Users can log in.`;
+Users can log in.
+
+## Data Model
+
+### Sessions
+Session tracking info.`;
+
+      const specPath = path.join(testDir, 'spec.md');
+      await fs.writeFile(specPath, specContent);
+
+      const validator = new Validator();
+      const report = await validator.validateSpec(specPath);
+
+      expect(report.valid).toBe(true);
+    });
+
+    it('should reject a spec with no ## sections', async () => {
+      const specContent = `# Just a Title
+
+Some content without sections.`;
 
       const specPath = path.join(testDir, 'spec.md');
       await fs.writeFile(specPath, specContent);
@@ -193,22 +214,18 @@ Users can log in.`;
       const report = await validator.validateSpec(specPath);
 
       expect(report.valid).toBe(false);
-      expect(report.summary.errors).toBeGreaterThan(0);
-      expect(report.issues.some(i => i.message.includes('Purpose'))).toBe(true);
+      expect(report.issues.some(i => i.message.includes('at least one ## section'))).toBe(true);
     });
 
     it('should detect duplicate ## section names', async () => {
       const specContent = `# Test Spec
 
-## Purpose
-This spec defines behavior.
-
-## Requirements
+## Behavior
 
 ### Login
 Users can log in.
 
-## Requirements
+## Behavior
 
 ### Logout
 Users can log out.`;
@@ -226,10 +243,7 @@ Users can log out.`;
     it('should detect duplicate ### block names within a section', async () => {
       const specContent = `# Test Spec
 
-## Purpose
-This spec defines behavior for user management.
-
-## Requirements
+## Behavior
 
 ### Login
 Users can log in with email.
@@ -676,49 +690,6 @@ The system supports mixed case delta headers.`;
 
       expect(report.valid).toBe(true);
       expect(report.summary.errors).toBe(0);
-    });
-  });
-
-  describe('strict mode', () => {
-    it('should fail on warnings in strict mode', async () => {
-      const specContent = `# Test Spec
-
-## Purpose
-Brief overview
-
-## Requirements
-
-### Login
-Users can log in with their email and password.`;
-
-      const specPath = path.join(testDir, 'spec.md');
-      await fs.writeFile(specPath, specContent);
-
-      const validator = new Validator(true); // strict mode
-      const report = await validator.validateSpec(specPath);
-
-      expect(report.valid).toBe(false); // Should fail due to brief overview warning
-    });
-
-    it('should pass warnings in non-strict mode', async () => {
-      const specContent = `# Test Spec
-
-## Purpose
-Brief overview
-
-## Requirements
-
-### Login
-Users can log in with their email and password.`;
-
-      const specPath = path.join(testDir, 'spec.md');
-      await fs.writeFile(specPath, specContent);
-
-      const validator = new Validator(false); // non-strict mode
-      const report = await validator.validateSpec(specPath);
-
-      expect(report.valid).toBe(true); // Should pass despite warnings
-      expect(report.summary.warnings).toBeGreaterThan(0);
     });
   });
 

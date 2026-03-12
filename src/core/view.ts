@@ -64,12 +64,12 @@ export class ViewCommand {
       console.log('─'.repeat(60));
       
       // Sort specs by requirement count (descending)
-      specsData.sort((a, b) => b.requirementCount - a.requirementCount);
-      
+      specsData.sort((a, b) => b.blockCount - a.blockCount);
+
       specsData.forEach(spec => {
-        const reqLabel = spec.requirementCount === 1 ? 'requirement' : 'requirements';
+        const reqLabel = spec.blockCount === 1 ? 'block' : 'blocks';
         console.log(
-          `  ${chalk.blue('▪')} ${chalk.bold(spec.name.padEnd(30))} ${chalk.dim(`${spec.requirementCount} ${reqLabel}`)}`
+          `  ${chalk.blue('▪')} ${chalk.bold(spec.name.padEnd(30))} ${chalk.dim(`${spec.blockCount} ${reqLabel}`)}`
         );
       });
     }
@@ -129,14 +129,14 @@ export class ViewCommand {
     return { draft, active, completed };
   }
 
-  private async getSpecsData(openspecDir: string): Promise<Array<{ name: string; requirementCount: number }>> {
+  private async getSpecsData(openspecDir: string): Promise<Array<{ name: string; blockCount: number }>> {
     const specsDir = path.join(openspecDir, 'specs');
     
     if (!fs.existsSync(specsDir)) {
       return [];
     }
 
-    const specs: Array<{ name: string; requirementCount: number }> = [];
+    const specs: Array<{ name: string; blockCount: number }> = [];
     const entries = fs.readdirSync(specsDir, { withFileTypes: true });
     
     for (const entry of entries) {
@@ -148,11 +148,11 @@ export class ViewCommand {
             const content = fs.readFileSync(specFile, 'utf-8');
             const parser = new MarkdownParser(content);
             const spec = parser.parseSpec(entry.name);
-            const requirementCount = spec.requirements.length;
-            specs.push({ name: entry.name, requirementCount });
+            const blockCount = Object.values(spec.sections).reduce((sum, s) => sum + s.blocks.length, 0);
+            specs.push({ name: entry.name, blockCount });
           } catch (error) {
             // If spec cannot be parsed, include with 0 count
-            specs.push({ name: entry.name, requirementCount: 0 });
+            specs.push({ name: entry.name, blockCount: 0 });
           }
         }
       }
@@ -168,7 +168,7 @@ export class ViewCommand {
     const totalChanges =
       changesData.draft.length + changesData.active.length + changesData.completed.length;
     const totalSpecs = specsData.length;
-    const totalRequirements = specsData.reduce((sum, spec) => sum + spec.requirementCount, 0);
+    const totalBlocks = specsData.reduce((sum, spec) => sum + spec.blockCount, 0);
 
     // Calculate total task progress
     let totalTasks = 0;
@@ -186,7 +186,7 @@ export class ViewCommand {
 
     console.log(chalk.bold('Summary:'));
     console.log(
-      `  ${chalk.cyan('●')} Specifications: ${chalk.bold(totalSpecs)} specs, ${chalk.bold(totalRequirements)} requirements`
+      `  ${chalk.cyan('●')} Specifications: ${chalk.bold(totalSpecs)} specs, ${chalk.bold(totalBlocks)} blocks`
     );
     if (changesData.draft.length > 0) {
       console.log(`  ${chalk.gray('●')} Draft Changes: ${chalk.bold(changesData.draft.length)}`);

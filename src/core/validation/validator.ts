@@ -300,14 +300,6 @@ export class Validator {
   private applySpecRules(spec: Spec, content: string): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
 
-    if (spec.overview.length < MIN_PURPOSE_LENGTH) {
-      issues.push({
-        level: 'WARNING',
-        path: 'overview',
-        message: VALIDATION_MESSAGES.PURPOSE_TOO_BRIEF,
-      });
-    }
-
     // Check for duplicate ## section names in raw content
     issues.push(...this.checkDuplicateSections(content));
 
@@ -315,15 +307,17 @@ export class Validator {
     issues.push(...this.checkDuplicateBlocks(content));
 
     // Warn about overly long block text
-    spec.requirements.forEach((req, index) => {
-      if (req.text.length > MAX_BLOCK_TEXT_LENGTH) {
-        issues.push({
-          level: 'INFO',
-          path: `requirements[${index}]`,
-          message: VALIDATION_MESSAGES.BLOCK_TOO_LONG,
-        });
+    for (const [sectionName, section] of Object.entries(spec.sections)) {
+      for (const block of section.blocks) {
+        if (block.text.length > MAX_BLOCK_TEXT_LENGTH) {
+          issues.push({
+            level: 'INFO',
+            path: `sections.${sectionName}.${block.name}`,
+            message: VALIDATION_MESSAGES.BLOCK_TOO_LONG,
+          });
+        }
       }
-    });
+    }
 
     return issues;
   }
@@ -460,10 +454,10 @@ export class Validator {
     if (msg === VALIDATION_MESSAGES.CHANGE_NO_DELTAS) {
       return `${msg}. ${VALIDATION_MESSAGES.GUIDE_NO_DELTAS}`;
     }
-    if (msg.includes('Spec must have a Purpose section') || msg.includes('Spec must have a Requirements section')) {
+    if (msg.includes('Spec must have at least one ## section')) {
       return `${msg}. ${VALIDATION_MESSAGES.GUIDE_MISSING_SPEC_SECTIONS}`;
     }
-    if (msg.includes('Change must have a Why section') || msg.includes('Change must have a What Changes section')) {
+    if (msg.includes('Change must have a') && msg.includes('section')) {
       return `${msg}. ${VALIDATION_MESSAGES.GUIDE_MISSING_CHANGE_SECTIONS}`;
     }
     return msg;

@@ -15,11 +15,28 @@ describe('top-level show command', () => {
     await fs.mkdir(changesDir, { recursive: true });
     await fs.mkdir(specsDir, { recursive: true });
 
-    const changeContent = `# Change: Demo\n\n## Why\nBecause reasons.\n\n## What Changes\n- **auth:** Add requirement\n`;
+    const changeContent = `# Change: Demo
+
+## Problem
+Something is broken and needs to be fixed urgently for our users.
+
+## Constraints
+Must not break existing features.
+
+## Success Criteria
+The thing works correctly after the fix is applied to production.
+
+## Non-goals
+Not doing extra work beyond the fix.
+`;
     await fs.mkdir(path.join(changesDir, 'demo'), { recursive: true });
     await fs.writeFile(path.join(changesDir, 'demo', 'proposal.md'), changeContent, 'utf-8');
 
-    const specContent = `## Purpose\nAuth spec.\n\n## Requirements\n\n### Requirement: User Authentication\nText\n`;
+    const specContent = `## Behavior
+
+### User Authentication
+The system authenticates users securely.
+`;
     await fs.mkdir(path.join(specsDir, 'auth'), { recursive: true });
     await fs.writeFile(path.join(specsDir, 'auth', 'spec.md'), specContent, 'utf-8');
   });
@@ -64,14 +81,14 @@ describe('top-level show command', () => {
     }
   });
 
-  it('auto-detects spec id and supports spec-only flags', () => {
+  it('auto-detects spec id and supports --json', () => {
     const originalCwd = process.cwd();
     try {
       process.chdir(testDir);
-      const output = execSync(`node ${openspecBin} show auth --json --requirements`, { encoding: 'utf-8' });
+      const output = execSync(`node ${openspecBin} show auth --json`, { encoding: 'utf-8' });
       const json = JSON.parse(output);
       expect(json.id).toBe('auth');
-      expect(Array.isArray(json.requirements)).toBe(true);
+      expect(json.sections).toBeDefined();
     } finally {
       process.chdir(originalCwd);
     }
@@ -80,9 +97,26 @@ describe('top-level show command', () => {
   it('handles ambiguity and suggests --type', async () => {
     // create matching spec and change named 'foo'
     await fs.mkdir(path.join(changesDir, 'foo'), { recursive: true });
-    await fs.writeFile(path.join(changesDir, 'foo', 'proposal.md'), '# Change: Foo\n\n## Why\n\n## What Changes\n', 'utf-8');
+    await fs.writeFile(path.join(changesDir, 'foo', 'proposal.md'), `# Change: Foo
+
+## Problem
+Something broken that needs fixing urgently for production users.
+
+## Constraints
+Cannot break things.
+
+## Success Criteria
+Everything works after the fix is deployed to all environments.
+
+## Non-goals
+Not doing extra work.
+`, 'utf-8');
     await fs.mkdir(path.join(specsDir, 'foo'), { recursive: true });
-    await fs.writeFile(path.join(specsDir, 'foo', 'spec.md'), '## Purpose\n\n## Requirements\n\n### Requirement: R\nX', 'utf-8');
+    await fs.writeFile(path.join(specsDir, 'foo', 'spec.md'), `## Behavior
+
+### Feature
+Does things.
+`, 'utf-8');
 
     const originalCwd = process.cwd();
     try {
@@ -119,5 +153,3 @@ describe('top-level show command', () => {
     }
   });
 });
-
-

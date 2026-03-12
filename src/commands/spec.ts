@@ -11,10 +11,6 @@ const SPECS_DIR = 'openspec/specs';
 
 interface ShowOptions {
   json?: boolean;
-  // JSON-only filters (raw-first text has no filters)
-  requirements?: boolean;
-  scenarios?: boolean; // --no-scenarios sets this to false (JSON only)
-  requirement?: string; // JSON only
   noInteractive?: boolean;
 }
 
@@ -24,44 +20,8 @@ function parseSpecFromFile(specPath: string, specId: string): Spec {
   return parser.parseSpec(specId);
 }
 
-function validateRequirementIndex(spec: Spec, requirementOpt?: string): number | undefined {
-  if (!requirementOpt) return undefined;
-  const index = Number.parseInt(requirementOpt, 10);
-  if (!Number.isInteger(index) || index < 1 || index > spec.requirements.length) {
-    throw new Error(`Requirement ${requirementOpt} not found`);
-  }
-  return index - 1; // convert to 0-based
-}
-
-function filterSpec(spec: Spec, options: ShowOptions): Spec {
-  const requirementIndex = validateRequirementIndex(spec, options.requirement);
-  const includeScenarios = options.scenarios !== false && !options.requirements;
-
-  const filteredRequirements = (requirementIndex !== undefined
-    ? [spec.requirements[requirementIndex]]
-    : spec.requirements
-  ).map(req => ({
-    text: req.text,
-    scenarios: includeScenarios ? req.scenarios : [],
-  }));
-
-  const metadata = spec.metadata ?? { version: '1.0.0', format: 'openspec' as const };
-
-  return {
-    name: spec.name,
-    overview: spec.overview,
-    requirements: filteredRequirements,
-    metadata,
-  };
-}
-
-/**
- * Print the raw markdown content for a spec file without any formatting.
- * Raw-first behavior ensures text mode is a passthrough for deterministic output.
- */
-function printSpecTextRaw(specPath: string): void {
-  const content = readFileSync(specPath, 'utf-8');
-  console.log(content);
+function totalBlockCount(spec: Spec): number {
+  return Object.values(spec.sections).reduce((sum, section) => sum + section.blocks.length, 0);
 }
 
 export class SpecCommand {
@@ -88,23 +48,20 @@ export class SpecCommand {
     }
 
     if (options.json) {
-      if (options.requirements && options.requirement) {
-        throw new Error('Options --requirements and --requirement cannot be used together');
-      }
       const parsed = parseSpecFromFile(specPath, specId);
-      const filtered = filterSpec(parsed, options);
       const output = {
         id: specId,
         title: parsed.name,
-        overview: parsed.overview,
-        requirementCount: filtered.requirements.length,
-        requirements: filtered.requirements,
+        sections: parsed.sections,
+        blockCount: totalBlockCount(parsed),
         metadata: parsed.metadata ?? { version: '1.0.0', format: 'openspec' as const },
       };
       console.log(JSON.stringify(output, null, 2));
       return;
     }
-    printSpecTextRaw(specPath);
+    // Raw-first: print markdown content without any formatting
+    const content = readFileSync(specPath, 'utf-8');
+    console.log(content);
   }
 }
 
@@ -122,9 +79,6 @@ export function registerSpecCommand(rootProgram: typeof program) {
     .command('show [spec-id]')
     .description('Display a specific specification')
     .option('--json', 'Output as JSON')
-    .option('--requirements', 'JSON only: Show only requirements (exclude scenarios)')
-    .option('--no-scenarios', 'JSON only: Exclude scenario content')
-    .option('-r, --requirement <id>', 'JSON only: Show specific requirement by ID (1-based)')
     .option('--no-interactive', 'Disable interactive prompts')
     .action(async (specId: string | undefined, options: ShowOptions & { noInteractive?: boolean }) => {
       try {
@@ -155,23 +109,23 @@ export function registerSpecCommand(rootProgram: typeof program) {
             if (existsSync(specPath)) {
               try {
                 const spec = parseSpecFromFile(specPath, dirent.name);
-                
+
                 return {
                   id: dirent.name,
                   title: spec.name,
-                  requirementCount: spec.requirements.length
+                  blockCount: totalBlockCount(spec),
                 };
               } catch {
                 return {
                   id: dirent.name,
                   title: dirent.name,
-                  requirementCount: 0
+                  blockCount: 0,
                 };
               }
             }
             return null;
           })
-          .filter((spec): spec is { id: string; title: string; requirementCount: number } => spec !== null)
+          .filter((spec): spec is { id: string; title: string; blockCount: number } => spec !== null)
           .sort((a, b) => a.id.localeCompare(b.id));
 
         if (options.json) {
@@ -186,7 +140,7 @@ export function registerSpecCommand(rootProgram: typeof program) {
             return;
           }
           specs.forEach(spec => {
-            console.log(`${spec.id}: ${spec.title} [requirements ${spec.requirementCount}]`);
+            console.log(`${spec.id}: ${spec.title} [blocks ${spec.blockCount}]`);
           });
         }
       } catch (error) {
@@ -218,7 +172,7 @@ export function registerSpecCommand(rootProgram: typeof program) {
         }
 
         const specPath = join(SPECS_DIR, specId, 'spec.md');
-        
+
         if (!existsSync(specPath)) {
           throw new Error(`Spec '${specId}' not found at openspec/specs/${specId}/spec.md`);
         }

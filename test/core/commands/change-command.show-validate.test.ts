@@ -16,7 +16,7 @@ describe('ChangeCommand.show/validate', () => {
     tempRoot = path.join(os.tmpdir(), `openspec-change-command-${Date.now()}`);
     const changesDir = path.join(tempRoot, 'openspec', 'changes', 'sample-change');
     await fs.mkdir(changesDir, { recursive: true });
-    const proposal = `# Change: Sample Change\n\n## Why\nConsistency in tests.\n\n## What Changes\n- **auth:** Add requirement`;
+    const proposal = `# Change: Sample Change\n\n## Problem\nConsistency in tests requires a stable change fixture for validation.\n\n## Constraints\nMust not break existing tests.\n\n## Success Criteria\nAll change command tests pass with the new fixture format consistently.\n\n## Non-goals\nNot testing delta parsing here.`;
     await fs.writeFile(path.join(changesDir, 'proposal.md'), proposal, 'utf-8');
     process.chdir(tempRoot);
     changeName = 'sample-change';

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { RequirementSchema } from './base.schema.js';
+import { BlockSchema } from './base.schema.js';
 import {
   MAX_DELTAS_PER_CHANGE,
   VALIDATION_MESSAGES
@@ -11,8 +11,8 @@ export const DeltaSchema = z.object({
   spec: z.string().min(1, VALIDATION_MESSAGES.DELTA_SPEC_EMPTY),
   operation: DeltaOperationType,
   description: z.string().min(1, VALIDATION_MESSAGES.DELTA_DESCRIPTION_EMPTY),
-  requirement: RequirementSchema.optional(),
-  requirements: z.array(RequirementSchema).optional(),
+  requirement: BlockSchema.optional(),
+  requirements: z.array(BlockSchema).optional(),
   rename: z.object({
     from: z.string(),
     to: z.string(),
@@ -20,17 +20,15 @@ export const DeltaSchema = z.object({
 });
 
 /**
- * ChangeSchema — allows empty deltas for proposal/design/tasks-only changes
- * (specs come last in the new workflow).
- *
- * NOTE: The `why`/`whatChanges` fields are kept for backward compat until
- * Task 5 updates the parsers. Proposal section validation (problem, constraints,
- * successCriteria, nonGoals) is enforced in the Validator via raw content checks.
+ * ChangeSchema — proposal sections are required; deltas may be empty for
+ * proposal/design/tasks-only changes (specs come last in the workflow).
  */
 export const ChangeSchema = z.object({
   name: z.string().min(1, VALIDATION_MESSAGES.CHANGE_NAME_EMPTY),
-  why: z.string().optional(),
-  whatChanges: z.string().optional(),
+  problem: z.string().min(1),
+  constraints: z.string().min(1),
+  successCriteria: z.string().min(1),
+  nonGoals: z.string().min(1),
   deltas: z.array(DeltaSchema)
     .max(MAX_DELTAS_PER_CHANGE, VALIDATION_MESSAGES.CHANGE_TOO_MANY_DELTAS),
   metadata: z.object({

@@ -1,14 +1,14 @@
 export {
   BlockSchema,
-  ScenarioSchema,
-  RequirementSchema,
   type Block,
-  type Scenario,
-  type Requirement,
 } from './base.schema.js';
 
 export {
+  SectionBlockSchema,
+  SpecSectionSchema,
   SpecSchema,
+  type SectionBlock,
+  type SpecSection,
   type Spec,
 } from './spec.schema.js';
 

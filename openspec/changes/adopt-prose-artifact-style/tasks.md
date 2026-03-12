@@ -43,7 +43,7 @@ Update `buildUpdatedSpec` in `specs-apply.ts` to iterate over `DeltaPlan.section
 - Error messages reference `### Name` not `### Requirement: Name`
 - Archive of a change with multi-section deltas produces correct merged spec
 
-### Task 4: Update validation to drop format enforcement (refactoring)
+### Task 4: Update validation to drop format enforcement (refactoring) — done
 
 Remove SHALL/MUST and Scenario enforcement from validation. Rename `RequirementSchema` to `BlockSchema` in `base.schema.ts` — keep the text-exists check, drop the `SHALL|MUST` refine and min-1 scenarios constraint. Update `SpecSchema` to accept any `##` sections with `###` blocks instead of requiring a `requirements` array. Update `ChangeSchema` to require `problem`, `constraints`, `successCriteria`, and `nonGoals` sections instead of `why`/`whatChanges`, and permit zero deltas before specs are authored. Remove `containsShallOrMust`, `countScenarios`, and scenario-related validation messages from `validator.ts` and `constants.ts`.
 

@@ -14,8 +14,8 @@ describe('Validator enriched messages', () => {
     await fs.rm(testDir, { recursive: true, force: true });
   });
 
-  it('adds guidance when spec missing Purpose section', async () => {
-    const specContent = `# Test Spec\n\n## Requirements\n\n### Foo\nFoo description\n`;
+  it('adds guidance when spec has no ## sections', async () => {
+    const specContent = `# Test Spec\n\nJust content with no sections.\n`;
     const specPath = path.join(testDir, 'spec.md');
     await fs.writeFile(specPath, specContent);
 
@@ -23,17 +23,14 @@ describe('Validator enriched messages', () => {
     const report = await validator.validateSpec(specPath);
     expect(report.valid).toBe(false);
     const msg = report.issues.map(i => i.message).join('\n');
-    expect(msg).toContain('Spec must have a Purpose section');
+    expect(msg).toContain('Spec must have at least one ## section');
     expect(msg).toContain('A spec must have at least one ## section containing ### blocks with content');
   });
 
   it('validates spec with prose blocks (no SHALL/MUST, no scenarios)', async () => {
     const specContent = `# Test Spec
 
-## Purpose
-This is a sufficiently long purpose section to avoid warnings about brevity.
-
-## Requirements
+## Behavior
 
 ### Foo
 Description of the foo behavior in plain prose.

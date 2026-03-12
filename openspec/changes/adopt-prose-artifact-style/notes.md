@@ -49,3 +49,19 @@
 [note] Error messages updated from "requirement" terminology to "block" throughout `validateChangeDeltaSpecs`. Guidance messages updated to reference `## ADDED SectionName` instead of `## ADDED/MODIFIED/REMOVED/RENAMED Requirements`.
 
 [note] Test fixtures (`test/fixtures/tmp-init/`) updated from old format to new prose format. All tests updated to match new validation behavior (40 validation schema/validator tests, 3 enriched-messages tests, enriched-output test, and 2 validate command tests).
+
+## Task 5: Update markdown parser for prose format (2026-03-13)
+
+[design] `parseSpec` now returns `{ name, sections: Record<string, { blocks: Array<{ name, text }> }>, metadata }` instead of `{ name, overview, requirements: Requirement[] }`. Any `##` sections are accepted, and `###` blocks within them are parsed without requiring a `Requirement:` prefix. Block `text` is the content between the `###` heading and the next heading of same or higher level, excluding child sections.
+
+[design] `parseChangeWithDeltas` now requires `## Problem`, `## Constraints`, `## Success Criteria`, `## Non-goals` instead of `## Why` / `## What Changes`. Returns `{ problem, constraints, successCriteria, nonGoals }` instead of `{ why, whatChanges }`.
+
+[refactor] Removed deprecated `RequirementSchema`, `ScenarioSchema`, and `Requirement`/`Scenario` types from `base.schema.ts`. The `DeltaSchema` now uses `BlockSchema` directly.
+
+[refactor] `change-parser.ts` `parseSpecDeltas` now delegates to `parseDeltaSpec` from `block-parser.ts` instead of maintaining its own delta parsing logic. Removed duplicated `parseSectionsFromContent`, `getContentUntilNextHeaderFromLines`, `parseRenames`, and `parseRequirements` methods.
+
+[refactor] `SpecSchema` changed from `{ name, overview, requirements[] }` to `{ name, sections: Record<string, { blocks[] }> }`. Updated `SectionBlockSchema` with `{ name, text }` shape.
+
+[consumers] Updated `spec.ts`, `list.ts`, `view.ts` commands to use `sections` instead of `requirements`/`overview`. JSON output now includes `sections` and `blockCount` instead of `requirements` and `requirementCount`.
+
+[consumers] Updated `applySpecRules` in validator to iterate blocks across all sections instead of referencing `spec.requirements`. Removed the `overview.length < MIN_PURPOSE_LENGTH` check since overview is no longer a dedicated field.
