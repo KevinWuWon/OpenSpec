@@ -115,7 +115,7 @@ export async function buildUpdatedSpec(
     const name = normalizeBlockName(add.name);
     if (addedNames.has(name)) {
       throw new Error(
-        `${specName} validation failed - duplicate requirement in ADDED for header "### Requirement: ${add.name}"`
+        `${specName} validation failed - duplicate requirement in ADDED for header "### ${add.name}"`
       );
     }
     addedNames.add(name);
@@ -125,7 +125,7 @@ export async function buildUpdatedSpec(
     const name = normalizeBlockName(mod.name);
     if (modifiedNames.has(name)) {
       throw new Error(
-        `${specName} validation failed - duplicate requirement in MODIFIED for header "### Requirement: ${mod.name}"`
+        `${specName} validation failed - duplicate requirement in MODIFIED for header "### ${mod.name}"`
       );
     }
     modifiedNames.add(name);
@@ -135,7 +135,7 @@ export async function buildUpdatedSpec(
     const name = normalizeBlockName(rem);
     if (removedNamesSet.has(name)) {
       throw new Error(
-        `${specName} validation failed - duplicate requirement in REMOVED for header "### Requirement: ${rem}"`
+        `${specName} validation failed - duplicate requirement in REMOVED for header "### ${rem}"`
       );
     }
     removedNamesSet.add(name);
@@ -147,12 +147,12 @@ export async function buildUpdatedSpec(
     const toNorm = normalizeBlockName(to);
     if (renamedFromSet.has(fromNorm)) {
       throw new Error(
-        `${specName} validation failed - duplicate FROM in RENAMED for header "### Requirement: ${from}"`
+        `${specName} validation failed - duplicate FROM in RENAMED for header "### ${from}"`
       );
     }
     if (renamedToSet.has(toNorm)) {
       throw new Error(
-        `${specName} validation failed - duplicate TO in RENAMED for header "### Requirement: ${to}"`
+        `${specName} validation failed - duplicate TO in RENAMED for header "### ${to}"`
       );
     }
     renamedFromSet.add(fromNorm);
@@ -174,20 +174,20 @@ export async function buildUpdatedSpec(
     const toNorm = normalizeBlockName(to);
     if (modifiedNames.has(fromNorm)) {
       throw new Error(
-        `${specName} validation failed - when a rename exists, MODIFIED must reference the NEW header "### Requirement: ${to}"`
+        `${specName} validation failed - when a rename exists, MODIFIED must reference the NEW header "### ${to}"`
       );
     }
     // Detect ADDED colliding with a RENAMED TO
     if (addedNames.has(toNorm)) {
       throw new Error(
-        `${specName} validation failed - RENAMED TO header collides with ADDED for "### Requirement: ${to}"`
+        `${specName} validation failed - RENAMED TO header collides with ADDED for "### ${to}"`
       );
     }
   }
   if (conflicts.length > 0) {
     const c = conflicts[0];
     throw new Error(
-      `${specName} validation failed - requirement present in multiple sections (${c.a} and ${c.b}) for header "### Requirement: ${c.name}"`
+      `${specName} validation failed - requirement present in multiple sections (${c.a} and ${c.b}) for header "### ${c.name}"`
     );
   }
   const hasAnyDelta = plan.added.length + plan.modified.length + plan.removed.length + plan.renamed.length > 0;
@@ -236,10 +236,10 @@ export async function buildUpdatedSpec(
     const from = normalizeBlockName(r.from);
     const to = normalizeBlockName(r.to);
     if (!nameToBlock.has(from)) {
-      throw new Error(`${specName} RENAMED failed for header "### Requirement: ${r.from}" - source not found`);
+      throw new Error(`${specName} RENAMED failed for header "### ${r.from}" - source not found`);
     }
     if (nameToBlock.has(to)) {
-      throw new Error(`${specName} RENAMED failed for header "### Requirement: ${r.to}" - target already exists`);
+      throw new Error(`${specName} RENAMED failed for header "### ${r.to}" - target already exists`);
     }
     const block = nameToBlock.get(from)!;
     const newHeader = `### ${to}`;
@@ -261,7 +261,7 @@ export async function buildUpdatedSpec(
       // For new specs, REMOVED requirements are already warned about and ignored
       // For existing specs, missing requirements are an error
       if (!isNewSpec) {
-        throw new Error(`${specName} REMOVED failed for header "### Requirement: ${name}" - not found`);
+        throw new Error(`${specName} REMOVED failed for header "### ${name}" - not found`);
       }
       // Skip removal for new specs (already warned above)
       continue;
@@ -273,13 +273,13 @@ export async function buildUpdatedSpec(
   for (const mod of plan.modified) {
     const key = normalizeBlockName(mod.name);
     if (!nameToBlock.has(key)) {
-      throw new Error(`${specName} MODIFIED failed for header "### Requirement: ${mod.name}" - not found`);
+      throw new Error(`${specName} MODIFIED failed for header "### ${mod.name}" - not found`);
     }
     // Replace block with provided raw (ensure header line matches key)
     const modHeaderMatch = mod.raw.split('\n')[0].match(/^###\s+(.+)\s*$/);
     if (!modHeaderMatch || normalizeBlockName(modHeaderMatch[1]) !== key) {
       throw new Error(
-        `${specName} MODIFIED failed for header "### Requirement: ${mod.name}" - header mismatch in content`
+        `${specName} MODIFIED failed for header "### ${mod.name}" - header mismatch in content`
       );
     }
     nameToBlock.set(key, mod);
@@ -289,7 +289,7 @@ export async function buildUpdatedSpec(
   for (const add of plan.added) {
     const key = normalizeBlockName(add.name);
     if (nameToBlock.has(key)) {
-      throw new Error(`${specName} ADDED failed for header "### Requirement: ${add.name}" - already exists`);
+      throw new Error(`${specName} ADDED failed for header "### ${add.name}" - already exists`);
     }
     nameToBlock.set(key, add);
   }
