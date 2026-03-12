@@ -9,11 +9,11 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import chalk from 'chalk';
 import {
-  extractRequirementsSection,
+  extractSection,
   parseDeltaSpec,
-  normalizeRequirementName,
-  type RequirementBlock,
-} from './parsers/requirement-blocks.js';
+  normalizeBlockName,
+  type Block,
+} from './parsers/block-parser.js';
 import { Validator } from './validation/validator.js';
 
 // -----------------------------------------------------------------------------
@@ -112,7 +112,7 @@ export async function buildUpdatedSpec(
   // Pre-validate duplicates within sections
   const addedNames = new Set<string>();
   for (const add of plan.added) {
-    const name = normalizeRequirementName(add.name);
+    const name = normalizeBlockName(add.name);
     if (addedNames.has(name)) {
       throw new Error(
         `${specName} validation failed - duplicate requirement in ADDED for header "### Requirement: ${add.name}"`
@@ -122,7 +122,7 @@ export async function buildUpdatedSpec(
   }
   const modifiedNames = new Set<string>();
   for (const mod of plan.modified) {
-    const name = normalizeRequirementName(mod.name);
+    const name = normalizeBlockName(mod.name);
     if (modifiedNames.has(name)) {
       throw new Error(
         `${specName} validation failed - duplicate requirement in MODIFIED for header "### Requirement: ${mod.name}"`
@@ -132,7 +132,7 @@ export async function buildUpdatedSpec(
   }
   const removedNamesSet = new Set<string>();
   for (const rem of plan.removed) {
-    const name = normalizeRequirementName(rem);
+    const name = normalizeBlockName(rem);
     if (removedNamesSet.has(name)) {
       throw new Error(
         `${specName} validation failed - duplicate requirement in REMOVED for header "### Requirement: ${rem}"`
@@ -143,8 +143,8 @@ export async function buildUpdatedSpec(
   const renamedFromSet = new Set<string>();
   const renamedToSet = new Set<string>();
   for (const { from, to } of plan.renamed) {
-    const fromNorm = normalizeRequirementName(from);
-    const toNorm = normalizeRequirementName(to);
+    const fromNorm = normalizeBlockName(from);
+    const toNorm = normalizeBlockName(to);
     if (renamedFromSet.has(fromNorm)) {
       throw new Error(
         `${specName} validation failed - duplicate FROM in RENAMED for header "### Requirement: ${from}"`
@@ -170,8 +170,8 @@ export async function buildUpdatedSpec(
   }
   // Renamed interplay: MODIFIED must reference the NEW header, not FROM
   for (const { from, to } of plan.renamed) {
-    const fromNorm = normalizeRequirementName(from);
-    const toNorm = normalizeRequirementName(to);
+    const fromNorm = normalizeBlockName(from);
+    const toNorm = normalizeBlockName(to);
     if (modifiedNames.has(fromNorm)) {
       throw new Error(
         `${specName} validation failed - when a rename exists, MODIFIED must reference the NEW header "### Requirement: ${to}"`
@@ -224,17 +224,17 @@ export async function buildUpdatedSpec(
   }
 
   // Extract requirements section and build name->block map
-  const parts = extractRequirementsSection(targetContent);
-  const nameToBlock = new Map<string, RequirementBlock>();
+  const parts = extractSection(targetContent, 'Requirements');
+  const nameToBlock = new Map<string, Block>();
   for (const block of parts.bodyBlocks) {
-    nameToBlock.set(normalizeRequirementName(block.name), block);
+    nameToBlock.set(normalizeBlockName(block.name), block);
   }
 
   // Apply operations in order: RENAMED → REMOVED → MODIFIED → ADDED
   // RENAMED
   for (const r of plan.renamed) {
-    const from = normalizeRequirementName(r.from);
-    const to = normalizeRequirementName(r.to);
+    const from = normalizeBlockName(r.from);
+    const to = normalizeBlockName(r.to);
     if (!nameToBlock.has(from)) {
       throw new Error(`${specName} RENAMED failed for header "### Requirement: ${r.from}" - source not found`);
     }
@@ -242,10 +242,10 @@ export async function buildUpdatedSpec(
       throw new Error(`${specName} RENAMED failed for header "### Requirement: ${r.to}" - target already exists`);
     }
     const block = nameToBlock.get(from)!;
-    const newHeader = `### Requirement: ${to}`;
+    const newHeader = `### ${to}`;
     const rawLines = block.raw.split('\n');
     rawLines[0] = newHeader;
-    const renamedBlock: RequirementBlock = {
+    const renamedBlock: Block = {
       headerLine: newHeader,
       name: to,
       raw: rawLines.join('\n'),
@@ -256,7 +256,7 @@ export async function buildUpdatedSpec(
 
   // REMOVED
   for (const name of plan.removed) {
-    const key = normalizeRequirementName(name);
+    const key = normalizeBlockName(name);
     if (!nameToBlock.has(key)) {
       // For new specs, REMOVED requirements are already warned about and ignored
       // For existing specs, missing requirements are an error
@@ -271,13 +271,13 @@ export async function buildUpdatedSpec(
 
   // MODIFIED
   for (const mod of plan.modified) {
-    const key = normalizeRequirementName(mod.name);
+    const key = normalizeBlockName(mod.name);
     if (!nameToBlock.has(key)) {
       throw new Error(`${specName} MODIFIED failed for header "### Requirement: ${mod.name}" - not found`);
     }
     // Replace block with provided raw (ensure header line matches key)
-    const modHeaderMatch = mod.raw.split('\n')[0].match(/^###\s*Requirement:\s*(.+)\s*$/);
-    if (!modHeaderMatch || normalizeRequirementName(modHeaderMatch[1]) !== key) {
+    const modHeaderMatch = mod.raw.split('\n')[0].match(/^###\s+(.+)\s*$/);
+    if (!modHeaderMatch || normalizeBlockName(modHeaderMatch[1]) !== key) {
       throw new Error(
         `${specName} MODIFIED failed for header "### Requirement: ${mod.name}" - header mismatch in content`
       );
@@ -287,7 +287,7 @@ export async function buildUpdatedSpec(
 
   // ADDED
   for (const add of plan.added) {
-    const key = normalizeRequirementName(add.name);
+    const key = normalizeBlockName(add.name);
     if (nameToBlock.has(key)) {
       throw new Error(`${specName} ADDED failed for header "### Requirement: ${add.name}" - already exists`);
     }
@@ -297,10 +297,10 @@ export async function buildUpdatedSpec(
   // Duplicates within resulting map are implicitly prevented by key uniqueness.
 
   // Recompose requirements section preserving original ordering where possible
-  const keptOrder: RequirementBlock[] = [];
+  const keptOrder: Block[] = [];
   const seen = new Set<string>();
   for (const block of parts.bodyBlocks) {
-    const key = normalizeRequirementName(block.name);
+    const key = normalizeBlockName(block.name);
     const replacement = nameToBlock.get(key);
     if (replacement) {
       keptOrder.push(replacement);

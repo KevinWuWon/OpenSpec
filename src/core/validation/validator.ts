@@ -10,7 +10,7 @@ import {
   MAX_REQUIREMENT_TEXT_LENGTH,
   VALIDATION_MESSAGES
 } from './constants.js';
-import { parseDeltaSpec, normalizeRequirementName } from '../parsers/requirement-blocks.js';
+import { parseDeltaSpec, normalizeBlockName } from '../parsers/block-parser.js';
 import { FileSystemUtils } from '../../utils/file-system.js';
 
 export class Validator {
@@ -153,7 +153,7 @@ export class Validator {
 
         // Validate ADDED
         for (const block of plan.added) {
-          const key = normalizeRequirementName(block.name);
+          const key = normalizeBlockName(block.name);
           totalDeltas++;
           if (addedNames.has(key)) {
             issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate requirement in ADDED: "${block.name}"` });
@@ -174,7 +174,7 @@ export class Validator {
 
         // Validate MODIFIED
         for (const block of plan.modified) {
-          const key = normalizeRequirementName(block.name);
+          const key = normalizeBlockName(block.name);
           totalDeltas++;
           if (modifiedNames.has(key)) {
             issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate requirement in MODIFIED: "${block.name}"` });
@@ -195,7 +195,7 @@ export class Validator {
 
         // Validate REMOVED (names only)
         for (const name of plan.removed) {
-          const key = normalizeRequirementName(name);
+          const key = normalizeBlockName(name);
           totalDeltas++;
           if (removedNames.has(key)) {
             issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate requirement in REMOVED: "${name}"` });
@@ -206,8 +206,8 @@ export class Validator {
 
         // Validate RENAMED pairs
         for (const { from, to } of plan.renamed) {
-          const fromKey = normalizeRequirementName(from);
-          const toKey = normalizeRequirementName(to);
+          const fromKey = normalizeBlockName(from);
+          const toKey = normalizeBlockName(to);
           totalDeltas++;
           if (renamedFrom.has(fromKey)) {
             issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate FROM in RENAMED: "${from}"` });
@@ -236,8 +236,8 @@ export class Validator {
           }
         }
         for (const { from, to } of plan.renamed) {
-          const fromKey = normalizeRequirementName(from);
-          const toKey = normalizeRequirementName(to);
+          const fromKey = normalizeBlockName(from);
+          const toKey = normalizeBlockName(to);
           if (modifiedNames.has(fromKey)) {
             issues.push({ level: 'ERROR', path: entryPath, message: `MODIFIED references old name from RENAMED. Use new header for "${to}"` });
           }
