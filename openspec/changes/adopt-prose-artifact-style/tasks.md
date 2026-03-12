@@ -1,6 +1,6 @@
 # Adopt Prose Artifact Style — Tasks
 
-### Task 1: Rename and generalize the block parser (refactoring)
+### Task 1: Rename and generalize the block parser (refactoring) — done
 
 Replace `RequirementBlock` with `Block` and `REQUIREMENT_HEADER_REGEX` with `BLOCK_HEADER_REGEX` (`/^###\s+(.+)\s*$/`) throughout `requirement-blocks.ts`. Rename the file to `block-parser.ts`. Replace `extractRequirementsSection` with `extractSection(content, sectionName)` that finds any `## {sectionName}` and parses `###` blocks within it. Add `extractAllSections(content)` that returns all `##` sections with their parsed blocks. Update all imports across the codebase.
 
@@ -13,7 +13,7 @@ Replace `RequirementBlock` with `Block` and `REQUIREMENT_HEADER_REGEX` with `BLO
 - No reference to hardcoded `## Requirements` section name
 - All existing tests updated to use new interface names
 
-### Task 2: Generalize delta parsing to multi-section (refactoring)
+### Task 2: Generalize delta parsing to multi-section (refactoring) — done
 
 Update `parseDeltaSpec` to match `## (ADDED|MODIFIED|REMOVED|RENAMED)\s+(.+)` and produce a `DeltaPlan` keyed by target section name (for example, `sections: Record<string, SectionDeltaPlan>`). Update `parseRequirementBlocksFromSection` (rename to `parseBlocksFromSection`) to use `BLOCK_HEADER_REGEX`. Update `parseRemovedNames` to match `### Name` instead of `### Requirement: Name`, and update `parseRenamedPairs` to parse canonical `FROM: ### Old Name` / `TO: ### New Name` entries.
 
@@ -27,7 +27,7 @@ Update `parseDeltaSpec` to match `## (ADDED|MODIFIED|REMOVED|RENAMED)\s+(.+)` an
 - Renamed pairs parsed from `FROM: ### Old Name` / `TO: ### New Name` format
 - Non-canonical rename bodies (legacy `### Requirement:` or freeform rename syntax) fail parsing/validation
 
-### Task 3: Update spec apply logic for multi-section deltas (feature)
+### Task 3: Update spec apply logic for multi-section deltas (feature) — done
 
 Update `buildUpdatedSpec` in `specs-apply.ts` to iterate over `DeltaPlan.sections`, applying each section's deltas to the corresponding `##` section in the target spec. Update `buildSpecSkeleton` to seed only `ADDED {Section}` targets for missing specs instead of hardcoding `## Requirements`.
 

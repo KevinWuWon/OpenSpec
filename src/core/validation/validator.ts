@@ -7,11 +7,22 @@ import { ChangeParser } from '../parsers/change-parser.js';
 import { ValidationReport, ValidationIssue, ValidationLevel } from './types.js';
 import {
   MIN_PURPOSE_LENGTH,
-  MAX_REQUIREMENT_TEXT_LENGTH,
+  MIN_PROBLEM_SECTION_LENGTH,
+  MIN_SUCCESS_CRITERIA_LENGTH,
+  MAX_BLOCK_TEXT_LENGTH,
+  PROPOSAL_SECTIONS,
   VALIDATION_MESSAGES
 } from './constants.js';
 import { parseDeltaSpec, normalizeBlockName } from '../parsers/block-parser.js';
 import { FileSystemUtils } from '../../utils/file-system.js';
+
+// Regex patterns for legacy marker detection
+const LEGACY_REQUIREMENT_HEADER = /^###\s+Requirement:\s/m;
+const LEGACY_SCENARIO_HEADER = /^####\s+Scenario:\s/m;
+const LEGACY_RENAME_BODY = /^\s*-?\s*(?:FROM|TO):\s*`?###\s*Requirement:\s/m;
+
+// Regex to strip HTML comments from content
+const HTML_COMMENT_REGEX = /<!--[\s\S]*?-->/g;
 
 export class Validator {
   private strictMode: boolean;
@@ -26,17 +37,17 @@ export class Validator {
     try {
       const content = readFileSync(filePath, 'utf-8');
       const parser = new MarkdownParser(content);
-      
+
       const spec = parser.parseSpec(specName);
-      
+
       const result = SpecSchema.safeParse(spec);
-      
+
       if (!result.success) {
         issues.push(...this.convertZodErrors(result.error));
       }
-      
+
       issues.push(...this.applySpecRules(spec, content));
-      
+
     } catch (error) {
       const baseMessage = error instanceof Error ? error.message : 'Unknown error';
       const enriched = this.enrichTopLevelError(specName, baseMessage);
@@ -46,7 +57,7 @@ export class Validator {
         message: enriched,
       });
     }
-    
+
     return this.createReport(issues);
   }
 
@@ -76,19 +87,22 @@ export class Validator {
     const changeName = this.extractNameFromPath(filePath);
     try {
       const content = readFileSync(filePath, 'utf-8');
+
+      // Validate proposal sections from raw content
+      issues.push(...this.validateProposalSections(content));
+
+      // Parse change for schema-level validation
       const changeDir = path.dirname(filePath);
       const parser = new ChangeParser(content, changeDir);
-      
       const change = await parser.parseChangeWithDeltas(changeName);
-      
+
       const result = ChangeSchema.safeParse(change);
-      
       if (!result.success) {
         issues.push(...this.convertZodErrors(result.error));
       }
-      
+
       issues.push(...this.applyChangeRules(change, content));
-      
+
     } catch (error) {
       const baseMessage = error instanceof Error ? error.message : 'Unknown error';
       const enriched = this.enrichTopLevelError(changeName, baseMessage);
@@ -98,28 +112,29 @@ export class Validator {
         message: enriched,
       });
     }
-    
+
     return this.createReport(issues);
   }
 
   /**
    * Validate delta-formatted spec files under a change directory.
    * Enforces:
-   * - At least one delta across all files
-   * - ADDED/MODIFIED: each requirement has SHALL/MUST and at least one scenario
-   * - REMOVED: names only; no scenario/description required
-   * - RENAMED: pairs well-formed
+   * - At least one delta across all files (when specs dir exists)
+   * - Block content exists for ADDED/MODIFIED
    * - No duplicates within sections; no cross-section conflicts per spec
+   * - Legacy markers rejected (### Requirement:, #### Scenario:, old rename format)
    */
   async validateChangeDeltaSpecs(changeDir: string): Promise<ValidationReport> {
     const issues: ValidationIssue[] = [];
     const specsDir = path.join(changeDir, 'specs');
     let totalDeltas = 0;
+    let hasSpecsDir = false;
     const missingHeaderSpecs: string[] = [];
     const emptySectionSpecs: Array<{ path: string; sections: string[] }> = [];
 
     try {
       const entries = await fs.readdir(specsDir, { withFileTypes: true });
+      hasSpecsDir = true;
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
         const specName = entry.name;
@@ -131,8 +146,12 @@ export class Validator {
           continue;
         }
 
-        const plan = parseDeltaSpec(content);
         const entryPath = `${specName}/spec.md`;
+
+        // Check for legacy markers before parsing
+        issues.push(...this.checkLegacyMarkers(content, entryPath));
+
+        const plan = parseDeltaSpec(content);
         const sectionPlans = Object.values(plan.sections);
         const hasSections = sectionPlans.length > 0;
         const hasEntries = sectionPlans.some(
@@ -160,19 +179,12 @@ export class Validator {
             const key = normalizeBlockName(block.name);
             totalDeltas++;
             if (addedNames.has(key)) {
-              issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate requirement in ADDED: "${block.name}"` });
+              issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate block in ADDED: "${block.name}"` });
             } else {
               addedNames.add(key);
             }
-            const requirementText = this.extractRequirementText(block.raw);
-            if (!requirementText) {
-              issues.push({ level: 'ERROR', path: entryPath, message: `ADDED "${block.name}" is missing requirement text` });
-            } else if (!this.containsShallOrMust(requirementText)) {
-              issues.push({ level: 'ERROR', path: entryPath, message: `ADDED "${block.name}" must contain SHALL or MUST` });
-            }
-            const scenarioCount = this.countScenarios(block.raw);
-            if (scenarioCount < 1) {
-              issues.push({ level: 'ERROR', path: entryPath, message: `ADDED "${block.name}" must include at least one scenario` });
+            if (!this.blockHasContent(block.raw)) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `ADDED "${block.name}" is missing block content` });
             }
           }
 
@@ -181,19 +193,12 @@ export class Validator {
             const key = normalizeBlockName(block.name);
             totalDeltas++;
             if (modifiedNames.has(key)) {
-              issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate requirement in MODIFIED: "${block.name}"` });
+              issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate block in MODIFIED: "${block.name}"` });
             } else {
               modifiedNames.add(key);
             }
-            const requirementText = this.extractRequirementText(block.raw);
-            if (!requirementText) {
-              issues.push({ level: 'ERROR', path: entryPath, message: `MODIFIED "${block.name}" is missing requirement text` });
-            } else if (!this.containsShallOrMust(requirementText)) {
-              issues.push({ level: 'ERROR', path: entryPath, message: `MODIFIED "${block.name}" must contain SHALL or MUST` });
-            }
-            const scenarioCount = this.countScenarios(block.raw);
-            if (scenarioCount < 1) {
-              issues.push({ level: 'ERROR', path: entryPath, message: `MODIFIED "${block.name}" must include at least one scenario` });
+            if (!this.blockHasContent(block.raw)) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `MODIFIED "${block.name}" is missing block content` });
             }
           }
 
@@ -202,7 +207,7 @@ export class Validator {
             const key = normalizeBlockName(name);
             totalDeltas++;
             if (removedNames.has(key)) {
-              issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate requirement in REMOVED: "${name}"` });
+              issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate block in REMOVED: "${name}"` });
             } else {
               removedNames.add(key);
             }
@@ -228,15 +233,15 @@ export class Validator {
           // Cross-operation conflicts (within this target section)
           for (const n of modifiedNames) {
             if (removedNames.has(n)) {
-              issues.push({ level: 'ERROR', path: entryPath, message: `Requirement present in both MODIFIED and REMOVED: "${n}"` });
+              issues.push({ level: 'ERROR', path: entryPath, message: `Block present in both MODIFIED and REMOVED: "${n}"` });
             }
             if (addedNames.has(n)) {
-              issues.push({ level: 'ERROR', path: entryPath, message: `Requirement present in both MODIFIED and ADDED: "${n}"` });
+              issues.push({ level: 'ERROR', path: entryPath, message: `Block present in both MODIFIED and ADDED: "${n}"` });
             }
           }
           for (const n of addedNames) {
             if (removedNames.has(n)) {
-              issues.push({ level: 'ERROR', path: entryPath, message: `Requirement present in both ADDED and REMOVED: "${n}"` });
+              issues.push({ level: 'ERROR', path: entryPath, message: `Block present in both ADDED and REMOVED: "${n}"` });
             }
           }
           for (const { from, to } of sp.renamed) {
@@ -252,25 +257,26 @@ export class Validator {
         }
       }
     } catch {
-      // If no specs dir, treat as no deltas
+      // If no specs dir, treat as no deltas — not an error for pre-spec changes
     }
 
     for (const { path: specPath, sections } of emptySectionSpecs) {
       issues.push({
         level: 'ERROR',
         path: specPath,
-        message: `Delta sections ${this.formatSectionList(sections)} were found, but no requirement entries parsed. Ensure each section includes at least one "###" block (REMOVED may use bullet list syntax).`,
+        message: `Delta sections ${this.formatSectionList(sections)} were found, but no entries parsed. Ensure each section includes at least one "###" block (REMOVED may use bullet list syntax).`,
       });
     }
-    for (const path of missingHeaderSpecs) {
+    for (const p of missingHeaderSpecs) {
       issues.push({
         level: 'ERROR',
-        path,
-        message: 'No delta sections found. Add headers such as "## ADDED Requirements" or move non-delta notes outside specs/.',
+        path: p,
+        message: 'No delta sections found. Add headers such as "## ADDED SectionName" or move non-delta notes outside specs/.',
       });
     }
 
-    if (totalDeltas === 0) {
+    // Only enforce non-empty deltas when a specs directory actually exists
+    if (hasSpecsDir && totalDeltas === 0) {
       issues.push({ level: 'ERROR', path: 'file', message: this.enrichTopLevelError('change', VALIDATION_MESSAGES.CHANGE_NO_DELTAS) });
     }
 
@@ -293,7 +299,7 @@ export class Validator {
 
   private applySpecRules(spec: Spec, content: string): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
-    
+
     if (spec.overview.length < MIN_PURPOSE_LENGTH) {
       issues.push({
         level: 'WARNING',
@@ -301,52 +307,151 @@ export class Validator {
         message: VALIDATION_MESSAGES.PURPOSE_TOO_BRIEF,
       });
     }
-    
+
+    // Check for duplicate ## section names in raw content
+    issues.push(...this.checkDuplicateSections(content));
+
+    // Check for duplicate ### block names within each section
+    issues.push(...this.checkDuplicateBlocks(content));
+
+    // Warn about overly long block text
     spec.requirements.forEach((req, index) => {
-      if (req.text.length > MAX_REQUIREMENT_TEXT_LENGTH) {
+      if (req.text.length > MAX_BLOCK_TEXT_LENGTH) {
         issues.push({
           level: 'INFO',
           path: `requirements[${index}]`,
-          message: VALIDATION_MESSAGES.REQUIREMENT_TOO_LONG,
-        });
-      }
-      
-      if (req.scenarios.length === 0) {
-        issues.push({
-          level: 'WARNING',
-          path: `requirements[${index}].scenarios`,
-          message: `${VALIDATION_MESSAGES.REQUIREMENT_NO_SCENARIOS}. ${VALIDATION_MESSAGES.GUIDE_SCENARIO_FORMAT}`,
+          message: VALIDATION_MESSAGES.BLOCK_TOO_LONG,
         });
       }
     });
-    
+
     return issues;
   }
 
-  private applyChangeRules(change: Change, content: string): ValidationIssue[] {
+  private applyChangeRules(_change: Change, _content: string): ValidationIssue[] {
+    // Proposal section validation is handled by validateProposalSections.
+    // Delta-level validation is handled by validateChangeDeltaSpecs.
+    return [];
+  }
+
+  /**
+   * Validate that raw markdown content has the required proposal sections
+   * in canonical order with no extras and no empty/comment-only content.
+   */
+  validateProposalSections(content: string): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
-    
-    const MIN_DELTA_DESCRIPTION_LENGTH = 10;
-    
-    change.deltas.forEach((delta, index) => {
-      if (!delta.description || delta.description.length < MIN_DELTA_DESCRIPTION_LENGTH) {
-        issues.push({
-          level: 'WARNING',
-          path: `deltas[${index}].description`,
-          message: VALIDATION_MESSAGES.DELTA_DESCRIPTION_TOO_BRIEF,
+    const lines = content.split('\n');
+
+    // Find all top-level ## sections
+    const foundSections: Array<{ name: string; lineIndex: number; content: string }> = [];
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(/^##\s+(.+?)\s*$/);
+      if (m) {
+        // Collect content until next ## or end
+        const contentLines: string[] = [];
+        for (let j = i + 1; j < lines.length; j++) {
+          if (/^##\s+/.test(lines[j])) break;
+          contentLines.push(lines[j]);
+        }
+        foundSections.push({
+          name: m[1],
+          lineIndex: i,
+          content: contentLines.join('\n'),
         });
       }
-      
-      if ((delta.operation === 'ADDED' || delta.operation === 'MODIFIED') && 
-          (!delta.requirements || delta.requirements.length === 0)) {
+    }
+
+    const foundNames = foundSections.map(s => s.name);
+
+    // Check for duplicate sections
+    const seen = new Set<string>();
+    for (const name of foundNames) {
+      const lower = name.toLowerCase();
+      if (seen.has(lower)) {
         issues.push({
-          level: 'WARNING',
-          path: `deltas[${index}].requirements`,
-          message: `${delta.operation} ${VALIDATION_MESSAGES.DELTA_MISSING_REQUIREMENTS}`,
+          level: 'ERROR',
+          path: 'proposal',
+          message: `${VALIDATION_MESSAGES.CHANGE_DUPLICATE_PROPOSAL_SECTION}: "${name}"`,
         });
       }
-    });
-    
+      seen.add(lower);
+    }
+
+    // Check that all required sections are present
+    for (const required of PROPOSAL_SECTIONS) {
+      if (!foundNames.some(n => n.toLowerCase() === required.toLowerCase())) {
+        issues.push({
+          level: 'ERROR',
+          path: 'proposal',
+          message: `${VALIDATION_MESSAGES.CHANGE_MISSING_PROPOSAL_SECTION}: "## ${required}"`,
+        });
+      }
+    }
+
+    // Check for extra sections (not in the required list)
+    for (const name of foundNames) {
+      if (!PROPOSAL_SECTIONS.some(r => r.toLowerCase() === name.toLowerCase())) {
+        issues.push({
+          level: 'ERROR',
+          path: 'proposal',
+          message: `${VALIDATION_MESSAGES.CHANGE_EXTRA_PROPOSAL_SECTION}: "## ${name}"`,
+        });
+      }
+    }
+
+    // Check canonical order (only among found required sections)
+    const foundRequired = foundNames.filter(n =>
+      PROPOSAL_SECTIONS.some(r => r.toLowerCase() === n.toLowerCase())
+    );
+    const canonicalIndices = foundRequired.map(n =>
+      PROPOSAL_SECTIONS.findIndex(r => r.toLowerCase() === n.toLowerCase())
+    );
+    for (let i = 1; i < canonicalIndices.length; i++) {
+      if (canonicalIndices[i] <= canonicalIndices[i - 1]) {
+        issues.push({
+          level: 'ERROR',
+          path: 'proposal',
+          message: VALIDATION_MESSAGES.CHANGE_PROPOSAL_SECTION_ORDER,
+        });
+        break;
+      }
+    }
+
+    // Check that required sections are not empty or comment-only
+    for (const section of foundSections) {
+      if (!PROPOSAL_SECTIONS.some(r => r.toLowerCase() === section.name.toLowerCase())) {
+        continue; // Skip non-required sections
+      }
+      const stripped = section.content.replace(HTML_COMMENT_REGEX, '').trim();
+      if (!stripped) {
+        issues.push({
+          level: 'ERROR',
+          path: 'proposal',
+          message: `${VALIDATION_MESSAGES.CHANGE_SECTION_EMPTY_OR_COMMENT}: "## ${section.name}"`,
+        });
+      }
+    }
+
+    // Validate minimum lengths for problem and success criteria
+    for (const section of foundSections) {
+      const lower = section.name.toLowerCase();
+      const stripped = section.content.replace(HTML_COMMENT_REGEX, '').trim();
+      if (lower === 'problem' && stripped.length > 0 && stripped.length < MIN_PROBLEM_SECTION_LENGTH) {
+        issues.push({
+          level: 'ERROR',
+          path: 'proposal',
+          message: VALIDATION_MESSAGES.CHANGE_PROBLEM_TOO_SHORT,
+        });
+      }
+      if (lower === 'success criteria' && stripped.length > 0 && stripped.length < MIN_SUCCESS_CRITERIA_LENGTH) {
+        issues.push({
+          level: 'ERROR',
+          path: 'proposal',
+          message: VALIDATION_MESSAGES.CHANGE_SUCCESS_CRITERIA_TOO_SHORT,
+        });
+      }
+    }
+
     return issues;
   }
 
@@ -367,7 +472,7 @@ export class Validator {
   private extractNameFromPath(filePath: string): string {
     const normalizedPath = FileSystemUtils.toPosixPath(filePath);
     const parts = normalizedPath.split('/');
-    
+
     // Look for the directory name after 'specs' or 'changes'
     for (let i = parts.length - 1; i >= 0; i--) {
       if (parts[i] === 'specs' || parts[i] === 'changes') {
@@ -376,7 +481,7 @@ export class Validator {
         }
       }
     }
-    
+
     // Fallback to filename without extension if not in expected structure
     const fileName = parts[parts.length - 1] ?? '';
     const dotIndex = fileName.lastIndexOf('.');
@@ -387,11 +492,11 @@ export class Validator {
     const errors = issues.filter(i => i.level === 'ERROR').length;
     const warnings = issues.filter(i => i.level === 'WARNING').length;
     const info = issues.filter(i => i.level === 'INFO').length;
-    
-    const valid = this.strictMode 
+
+    const valid = this.strictMode
       ? errors === 0 && warnings === 0
       : errors === 0;
-    
+
     return {
       valid,
       issues,
@@ -407,41 +512,110 @@ export class Validator {
     return report.valid;
   }
 
-  private extractRequirementText(blockRaw: string): string | undefined {
+  /**
+   * Check if a raw block has content after its ### header line.
+   */
+  private blockHasContent(blockRaw: string): boolean {
     const lines = blockRaw.split('\n');
-    // Skip header line (index 0)
-    let i = 1;
-
-    // Find the first substantial text line, skipping metadata and blank lines
-    for (; i < lines.length; i++) {
-      const line = lines[i];
-
-      // Stop at scenario headers
-      if (/^####\s+/.test(line)) break;
-
-      const trimmed = line.trim();
-
-      // Skip blank lines
-      if (trimmed.length === 0) continue;
-
-      // Skip metadata lines (lines starting with ** like **ID**, **Priority**, etc.)
-      if (/^\*\*[^*]+\*\*:/.test(trimmed)) continue;
-
-      // Found first non-metadata, non-blank line - this is the requirement text
-      return trimmed;
+    // Skip header line (index 0), check for any non-blank content
+    for (let i = 1; i < lines.length; i++) {
+      if (lines[i].trim().length > 0) return true;
     }
-
-    // No requirement text found
-    return undefined;
+    return false;
   }
 
-  private containsShallOrMust(text: string): boolean {
-    return /\b(SHALL|MUST)\b/.test(text);
+  /**
+   * Check for legacy markers in delta spec content.
+   */
+  private checkLegacyMarkers(content: string, entryPath: string): ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+    if (LEGACY_REQUIREMENT_HEADER.test(content)) {
+      issues.push({
+        level: 'ERROR',
+        path: entryPath,
+        message: VALIDATION_MESSAGES.LEGACY_REQUIREMENT_PREFIX,
+      });
+    }
+    if (LEGACY_SCENARIO_HEADER.test(content)) {
+      issues.push({
+        level: 'ERROR',
+        path: entryPath,
+        message: VALIDATION_MESSAGES.LEGACY_SCENARIO_HEADER,
+      });
+    }
+    if (LEGACY_RENAME_BODY.test(content)) {
+      issues.push({
+        level: 'ERROR',
+        path: entryPath,
+        message: VALIDATION_MESSAGES.LEGACY_RENAME_BODY,
+      });
+    }
+    return issues;
   }
 
-  private countScenarios(blockRaw: string): number {
-    const matches = blockRaw.match(/^####\s+/gm);
-    return matches ? matches.length : 0;
+  /**
+   * Check for duplicate ## section names in raw spec content.
+   */
+  private checkDuplicateSections(content: string): ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+    const lines = content.split('\n');
+    const sectionNames = new Map<string, string>(); // lowercase → first occurrence
+
+    for (const line of lines) {
+      const m = line.match(/^##\s+(.+?)\s*$/);
+      if (m) {
+        const name = m[1];
+        const lower = name.toLowerCase();
+        if (sectionNames.has(lower)) {
+          issues.push({
+            level: 'ERROR',
+            path: 'sections',
+            message: `${VALIDATION_MESSAGES.SPEC_DUPLICATE_SECTION}: "${name}"`,
+          });
+        } else {
+          sectionNames.set(lower, name);
+        }
+      }
+    }
+    return issues;
+  }
+
+  /**
+   * Check for duplicate ### block names within each ## section.
+   */
+  private checkDuplicateBlocks(content: string): ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+    const lines = content.split('\n');
+    let currentSection = '';
+    const blockNamesBySection = new Map<string, Set<string>>();
+
+    for (const line of lines) {
+      const sectionMatch = line.match(/^##\s+(.+?)\s*$/);
+      if (sectionMatch) {
+        currentSection = sectionMatch[1];
+        if (!blockNamesBySection.has(currentSection)) {
+          blockNamesBySection.set(currentSection, new Set());
+        }
+        continue;
+      }
+
+      const blockMatch = line.match(/^###\s+(.+?)\s*$/);
+      if (blockMatch && currentSection) {
+        const blockName = blockMatch[1];
+        const lower = blockName.toLowerCase();
+        const sectionBlocks = blockNamesBySection.get(currentSection)!;
+        if (sectionBlocks.has(lower)) {
+          issues.push({
+            level: 'ERROR',
+            path: `sections.${currentSection}`,
+            message: `${VALIDATION_MESSAGES.SPEC_DUPLICATE_BLOCK}: "${blockName}" in "## ${currentSection}"`,
+          });
+        } else {
+          sectionBlocks.add(lower);
+        }
+      }
+    }
+    return issues;
   }
 
   private formatSectionList(sections: string[]): string {

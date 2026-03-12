@@ -29,3 +29,23 @@
 [fix] Error messages changed from "duplicate requirement" to "duplicate block" and from "only ADDED requirements" to "only ADDED blocks" throughout `specs-apply.ts`.
 
 [note] Added `sectionExistsInContent` helper that does a line-by-line check for `## SectionName` (case-insensitive) without needing regex escaping for section names.
+
+## Task 4: Update validation to drop format enforcement (2026-03-13)
+
+[design] Introduced `BlockSchema` in `base.schema.ts` with only `text: z.string().min(1)` — no SHALL/MUST refine, no scenarios constraint. Kept `RequirementSchema` as a backward-compat alias with optional scenarios until Task 5 updates parsers.
+
+[design] ChangeSchema now allows empty deltas (`.min(1)` removed) for pre-spec proposal/design/tasks-only changes. The `why`/`whatChanges` fields are kept as optional for parser backward compat. Proposal section validation (Problem, Constraints, Success Criteria, Non-goals) is enforced via raw-content checks in `Validator.validateProposalSections()`, not through the schema shape.
+
+[behavior-change] `validateChangeDeltaSpecs` no longer errors when `specs/` directory doesn't exist — returns valid report for pre-spec changes. Only enforces non-empty deltas when the specs dir exists and was successfully read.
+
+[behavior-change] Removed `containsShallOrMust`, `countScenarios`, `extractRequirementText` from validator. Delta spec validation now checks `blockHasContent` (any non-blank content after the header) instead of SHALL/MUST and scenario counts.
+
+[feature] Added legacy marker rejection in `validateChangeDeltaSpecs`: detects `### Requirement:` headers, `#### Scenario:` headers, and old `FROM: ### Requirement:` rename format. Reports as ERROR with descriptive messages.
+
+[feature] Added `checkDuplicateSections` and `checkDuplicateBlocks` helpers in validator for spec validation. Duplicate `##` section names and duplicate `###` block names within the same section are now detected from raw content.
+
+[feature] `validateProposalSections` validates: all four required sections present, canonical order, no extras, no duplicates, not empty/comment-only, minimum lengths for Problem (50 chars) and Success Criteria (50 chars).
+
+[note] Error messages updated from "requirement" terminology to "block" throughout `validateChangeDeltaSpecs`. Guidance messages updated to reference `## ADDED SectionName` instead of `## ADDED/MODIFIED/REMOVED/RENAMED Requirements`.
+
+[note] Test fixtures (`test/fixtures/tmp-init/`) updated from old format to new prose format. All tests updated to match new validation behavior (40 validation schema/validator tests, 3 enriched-messages tests, enriched-output test, and 2 validate command tests).

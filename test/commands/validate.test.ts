@@ -13,37 +13,42 @@ describe('top-level validate command', () => {
     await fs.mkdir(changesDir, { recursive: true });
     await fs.mkdir(specsDir, { recursive: true });
 
-    // Create a valid spec
+    // Create a valid spec (prose format — no SHALL/MUST or Scenario required)
     const specContent = [
       '## Purpose',
       'This spec ensures the validation harness exercises a deterministic alpha module for automated tests.',
       '',
       '## Requirements',
       '',
-      '### Requirement: Alpha module SHALL produce deterministic output',
-      'The alpha module SHALL produce a deterministic response for validation.',
-      '',
-      '#### Scenario: Deterministic alpha run',
-      '- **GIVEN** a configured alpha module',
-      '- **WHEN** the module runs the default flow',
-      '- **THEN** the output matches the expected fixture result',
+      '### Alpha module produces deterministic output',
+      'The alpha module produces a deterministic response for validation.',
     ].join('\n');
     await fs.mkdir(path.join(specsDir, 'alpha'), { recursive: true });
     await fs.writeFile(path.join(specsDir, 'alpha', 'spec.md'), specContent, 'utf-8');
 
-    // Create a simple change with bullets (parser supports this)
-    const changeContent = `# Test Change\n\n## Why\nBecause reasons that are sufficiently long for validation.\n\n## What Changes\n- **alpha:** Add something`;
+    // Create a change with proposal sections
+    const changeContent = [
+      '# Test Change',
+      '',
+      '## Problem',
+      'The alpha module needs validation support for automated testing in the harness.',
+      '',
+      '## Constraints',
+      'Must work with existing alpha module configuration.',
+      '',
+      '## Success Criteria',
+      'The validation harness exercises a deterministic alpha module for automated tests.',
+      '',
+      '## Non-goals',
+      'Not changing the alpha module behavior itself.',
+    ].join('\n');
     await fs.mkdir(path.join(changesDir, 'c1'), { recursive: true });
     await fs.writeFile(path.join(changesDir, 'c1', 'proposal.md'), changeContent, 'utf-8');
     const deltaContent = [
       '## ADDED Requirements',
-      '### Requirement: Validator SHALL support alpha change deltas',
-      'The validator SHALL accept deltas provided by the test harness.',
       '',
-      '#### Scenario: Apply alpha delta',
-      '- **GIVEN** the test change delta',
-      '- **WHEN** openspec validate runs',
-      '- **THEN** the validator reports the change as valid',
+      '### Validator supports alpha change deltas',
+      'The validator accepts deltas provided by the test harness.',
     ].join('\n');
     const c1DeltaDir = path.join(changesDir, 'c1', 'specs', 'alpha');
     await fs.mkdir(c1DeltaDir, { recursive: true });
@@ -102,11 +107,17 @@ describe('top-level validate command', () => {
     const crlfContent = toCrlf([
       '# CRLF Proposal',
       '',
-      '## Why',
-      'This change verifies validation works with Windows line endings.',
+      '## Problem',
+      'This change verifies validation works with Windows line endings for the harness.',
       '',
-      '## What Changes',
-      '- **alpha:** Ensure validation passes on CRLF files',
+      '## Constraints',
+      'Must handle CRLF without conversion.',
+      '',
+      '## Success Criteria',
+      'Validation passes on CRLF files without needing to manually convert line endings.',
+      '',
+      '## Non-goals',
+      'Not implementing auto-conversion of line endings.',
     ]);
 
     await fs.mkdir(path.join(changesDir, changeId), { recursive: true });
@@ -114,13 +125,9 @@ describe('top-level validate command', () => {
 
     const deltaContent = toCrlf([
       '## ADDED Requirements',
-      '### Requirement: Parser SHALL accept CRLF change proposals',
-      'The parser SHALL accept CRLF change proposals without manual edits.',
       '',
-      '#### Scenario: Validate CRLF change',
-      '- **GIVEN** a change proposal saved with CRLF line endings',
-      '- **WHEN** a developer runs openspec validate on the proposal',
-      '- **THEN** validation succeeds without section errors',
+      '### Parser accepts CRLF change proposals',
+      'The parser accepts CRLF change proposals without manual edits.',
     ]);
 
     const deltaDir = path.join(changesDir, changeId, 'specs', 'alpha');
@@ -132,16 +139,11 @@ describe('top-level validate command', () => {
   });
 
   it('respects --no-interactive flag passed via CLI', async () => {
-    // This test ensures Commander.js --no-interactive flag is correctly parsed
-    // and passed to the validate command. The flag sets options.interactive = false
-    // (not options.noInteractive = true) due to Commander.js convention.
     const result = await runCLI(['validate', '--specs', '--no-interactive'], {
       cwd: testDir,
-      // Don't set OPEN_SPEC_INTERACTIVE to ensure we're testing the flag itself
       env: { ...process.env, OPEN_SPEC_INTERACTIVE: undefined },
     });
     expect(result.exitCode).toBe(0);
-    // Should complete without hanging and without prompts
     expect(result.stderr).not.toContain('What would you like to validate?');
   });
 });

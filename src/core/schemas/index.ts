@@ -1,6 +1,8 @@
 export {
+  BlockSchema,
   ScenarioSchema,
   RequirementSchema,
+  type Block,
   type Scenario,
   type Requirement,
 } from './base.schema.js';
