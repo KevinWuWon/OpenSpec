@@ -10,6 +10,7 @@ import {
   type Block,
   type SectionParts,
   type DeltaPlan,
+  type SectionDeltaPlan,
 } from '../../../src/core/parsers/block-parser.js';
 
 describe('BLOCK_HEADER_REGEX', () => {
@@ -169,55 +170,110 @@ describe('extractAllSections', () => {
 });
 
 describe('parseDeltaSpec', () => {
-  it('parses added, modified, removed, and renamed sections', () => {
+  it('parses dynamic section names (## ADDED Behavior)', () => {
     const content = [
-      '## ADDED Requirements',
+      '## ADDED Behavior',
+      '',
+      '### Login',
+      'Login content',
+    ].join('\n');
+
+    const plan = parseDeltaSpec(content);
+    expect(plan.sections['Behavior']).toBeDefined();
+    expect(plan.sections['Behavior'].targetSection).toBe('Behavior');
+    expect(plan.sections['Behavior'].added).toHaveLength(1);
+    expect(plan.sections['Behavior'].added[0].name).toBe('Login');
+  });
+
+  it('parses multiple sections (## ADDED Foo and ## MODIFIED Bar)', () => {
+    const content = [
+      '## ADDED Behavior',
+      '',
+      '### Login',
+      'Login content',
+      '',
+      '## MODIFIED Data Model',
+      '',
+      '### Sessions',
+      'Updated sessions',
+    ].join('\n');
+
+    const plan = parseDeltaSpec(content);
+    expect(Object.keys(plan.sections)).toHaveLength(2);
+    expect(plan.sections['Behavior'].added).toHaveLength(1);
+    expect(plan.sections['Data Model'].modified).toHaveLength(1);
+    expect(plan.sections['Data Model'].modified[0].name).toBe('Sessions');
+  });
+
+  it('aggregates repeated headers targeting the same section', () => {
+    const content = [
+      '## ADDED Behavior',
+      '',
+      '### Login',
+      'Login content',
+      '',
+      '## ADDED Behavior',
+      '',
+      '### Logout',
+      'Logout content',
+    ].join('\n');
+
+    const plan = parseDeltaSpec(content);
+    expect(Object.keys(plan.sections)).toHaveLength(1);
+    expect(plan.sections['Behavior'].added).toHaveLength(2);
+    expect(plan.sections['Behavior'].added[0].name).toBe('Login');
+    expect(plan.sections['Behavior'].added[1].name).toBe('Logout');
+  });
+
+  it('aggregates different operations on the same section', () => {
+    const content = [
+      '## ADDED Behavior',
       '',
       '### New Feature',
-      'New feature content',
+      'New content',
       '',
-      '## MODIFIED Requirements',
+      '## MODIFIED Behavior',
       '',
       '### Existing Feature',
       'Updated content',
       '',
-      '## REMOVED Requirements',
+      '## REMOVED Behavior',
       '',
       '### Old Feature',
       '',
-      '## RENAMED Requirements',
+      '## RENAMED Behavior',
       '',
       'FROM: ### Old Name',
       'TO: ### New Name',
     ].join('\n');
 
     const plan = parseDeltaSpec(content);
-    expect(plan.added).toHaveLength(1);
-    expect(plan.added[0].name).toBe('New Feature');
-    expect(plan.modified).toHaveLength(1);
-    expect(plan.modified[0].name).toBe('Existing Feature');
-    expect(plan.removed).toHaveLength(1);
-    expect(plan.removed[0]).toBe('Old Feature');
-    expect(plan.renamed).toHaveLength(1);
-    expect(plan.renamed[0]).toEqual({ from: 'Old Name', to: 'New Name' });
+    expect(Object.keys(plan.sections)).toHaveLength(1);
+    const sp = plan.sections['Behavior'];
+    expect(sp.added).toHaveLength(1);
+    expect(sp.modified).toHaveLength(1);
+    expect(sp.removed).toEqual(['Old Feature']);
+    expect(sp.renamed).toEqual([{ from: 'Old Name', to: 'New Name' }]);
   });
 
-  it('returns empty arrays when sections are missing', () => {
-    const content = '## ADDED Requirements\n\n### Something\nContent';
+  it('returns empty sections record when no delta headers found', () => {
+    const content = '# Just a title\n\nSome content';
     const plan = parseDeltaSpec(content);
-    expect(plan.added).toHaveLength(1);
-    expect(plan.modified).toHaveLength(0);
-    expect(plan.removed).toHaveLength(0);
-    expect(plan.renamed).toHaveLength(0);
+    expect(Object.keys(plan.sections)).toHaveLength(0);
   });
 
-  it('tracks section presence', () => {
+  it('is case-insensitive for operation keywords', () => {
+    const content = '## added Behavior\n\n### Login\nContent';
+    const plan = parseDeltaSpec(content);
+    expect(plan.sections['Behavior']).toBeDefined();
+    expect(plan.sections['Behavior'].added).toHaveLength(1);
+  });
+
+  it('still works with legacy "Requirements" section name', () => {
     const content = '## ADDED Requirements\n\n### Block\nContent';
     const plan = parseDeltaSpec(content);
-    expect(plan.sectionPresence.added).toBe(true);
-    expect(plan.sectionPresence.modified).toBe(false);
-    expect(plan.sectionPresence.removed).toBe(false);
-    expect(plan.sectionPresence.renamed).toBe(false);
+    expect(plan.sections['Requirements']).toBeDefined();
+    expect(plan.sections['Requirements'].added).toHaveLength(1);
   });
 });
 

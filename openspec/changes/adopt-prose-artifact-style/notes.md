@@ -7,3 +7,13 @@
 [learning] The renamed block header construction in `specs-apply.ts` also used `### Requirement: ${to}` — had to update to `### ${to}` to match the generalized format.
 
 [question] `parseDeltaSpec` still references `ADDED Requirements`, `MODIFIED Requirements`, etc. as section names. Left this as-is per task scope — Task 2 will generalize delta parsing to multi-section format. The `parseRemovedNames` and `parseRenamedPairs` functions now use `BLOCK_HEADER_REGEX` (matching `### Name`) instead of the old `Requirement:` prefix regex, and the renamed pair regexes were updated from `### Requirement:` to `### ` in FROM/TO patterns.
+
+## Task 2: Generalize delta parsing to multi-section (2026-03-13)
+
+[design] Replaced flat `DeltaPlan` (`added`, `modified`, `removed`, `renamed` arrays + `sectionPresence`) with `SectionDeltaPlan` per target section, nested under `DeltaPlan.sections: Record<string, SectionDeltaPlan>`. The regex `DELTA_HEADER_REGEX = /^##\s+(ADDED|MODIFIED|REMOVED|RENAMED)\s+(.+?)\s*$/i` captures operation + target section name dynamically.
+
+[design] Removed `splitTopLevelSections` and `getSectionCaseInsensitive` helper functions — replaced by inline parsing in the new `parseDeltaSpec`. The new implementation scans lines for `DELTA_HEADER_REGEX` matches, collects body ranges, and aggregates into the appropriate `SectionDeltaPlan`.
+
+[refactor] Extracted `validateSectionDeltaPlan` and `applySectionDelta` helper functions in `specs-apply.ts` to apply validation and delta operations per-section rather than globally. The core merge algorithm (RENAMED → REMOVED → MODIFIED → ADDED) is unchanged.
+
+[note] `validator.ts` validation now runs per target section — duplicate/conflict checks are scoped within each section's namespace, matching the design doc's requirement that the same `###` block name can appear in different target sections.

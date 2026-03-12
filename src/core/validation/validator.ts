@@ -133,116 +133,121 @@ export class Validator {
 
         const plan = parseDeltaSpec(content);
         const entryPath = `${specName}/spec.md`;
-        const sectionNames: string[] = [];
-        if (plan.sectionPresence.added) sectionNames.push('## ADDED Requirements');
-        if (plan.sectionPresence.modified) sectionNames.push('## MODIFIED Requirements');
-        if (plan.sectionPresence.removed) sectionNames.push('## REMOVED Requirements');
-        if (plan.sectionPresence.renamed) sectionNames.push('## RENAMED Requirements');
-        const hasSections = sectionNames.length > 0;
-        const hasEntries = plan.added.length + plan.modified.length + plan.removed.length + plan.renamed.length > 0;
+        const sectionPlans = Object.values(plan.sections);
+        const hasSections = sectionPlans.length > 0;
+        const hasEntries = sectionPlans.some(
+          sp => sp.added.length + sp.modified.length + sp.removed.length + sp.renamed.length > 0
+        );
         if (!hasEntries) {
-          if (hasSections) emptySectionSpecs.push({ path: entryPath, sections: sectionNames });
-          else missingHeaderSpecs.push(entryPath);
-        }
-
-        const addedNames = new Set<string>();
-        const modifiedNames = new Set<string>();
-        const removedNames = new Set<string>();
-        const renamedFrom = new Set<string>();
-        const renamedTo = new Set<string>();
-
-        // Validate ADDED
-        for (const block of plan.added) {
-          const key = normalizeBlockName(block.name);
-          totalDeltas++;
-          if (addedNames.has(key)) {
-            issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate requirement in ADDED: "${block.name}"` });
+          if (hasSections) {
+            const sectionNames = Object.keys(plan.sections).map(s => `## ... ${s}`);
+            emptySectionSpecs.push({ path: entryPath, sections: sectionNames });
           } else {
-            addedNames.add(key);
-          }
-          const requirementText = this.extractRequirementText(block.raw);
-          if (!requirementText) {
-            issues.push({ level: 'ERROR', path: entryPath, message: `ADDED "${block.name}" is missing requirement text` });
-          } else if (!this.containsShallOrMust(requirementText)) {
-            issues.push({ level: 'ERROR', path: entryPath, message: `ADDED "${block.name}" must contain SHALL or MUST` });
-          }
-          const scenarioCount = this.countScenarios(block.raw);
-          if (scenarioCount < 1) {
-            issues.push({ level: 'ERROR', path: entryPath, message: `ADDED "${block.name}" must include at least one scenario` });
+            missingHeaderSpecs.push(entryPath);
           }
         }
 
-        // Validate MODIFIED
-        for (const block of plan.modified) {
-          const key = normalizeBlockName(block.name);
-          totalDeltas++;
-          if (modifiedNames.has(key)) {
-            issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate requirement in MODIFIED: "${block.name}"` });
-          } else {
-            modifiedNames.add(key);
-          }
-          const requirementText = this.extractRequirementText(block.raw);
-          if (!requirementText) {
-            issues.push({ level: 'ERROR', path: entryPath, message: `MODIFIED "${block.name}" is missing requirement text` });
-          } else if (!this.containsShallOrMust(requirementText)) {
-            issues.push({ level: 'ERROR', path: entryPath, message: `MODIFIED "${block.name}" must contain SHALL or MUST` });
-          }
-          const scenarioCount = this.countScenarios(block.raw);
-          if (scenarioCount < 1) {
-            issues.push({ level: 'ERROR', path: entryPath, message: `MODIFIED "${block.name}" must include at least one scenario` });
-          }
-        }
+        // Validate each target section independently
+        for (const sp of sectionPlans) {
+          const addedNames = new Set<string>();
+          const modifiedNames = new Set<string>();
+          const removedNames = new Set<string>();
+          const renamedFrom = new Set<string>();
+          const renamedTo = new Set<string>();
 
-        // Validate REMOVED (names only)
-        for (const name of plan.removed) {
-          const key = normalizeBlockName(name);
-          totalDeltas++;
-          if (removedNames.has(key)) {
-            issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate requirement in REMOVED: "${name}"` });
-          } else {
-            removedNames.add(key);
+          // Validate ADDED
+          for (const block of sp.added) {
+            const key = normalizeBlockName(block.name);
+            totalDeltas++;
+            if (addedNames.has(key)) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate requirement in ADDED: "${block.name}"` });
+            } else {
+              addedNames.add(key);
+            }
+            const requirementText = this.extractRequirementText(block.raw);
+            if (!requirementText) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `ADDED "${block.name}" is missing requirement text` });
+            } else if (!this.containsShallOrMust(requirementText)) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `ADDED "${block.name}" must contain SHALL or MUST` });
+            }
+            const scenarioCount = this.countScenarios(block.raw);
+            if (scenarioCount < 1) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `ADDED "${block.name}" must include at least one scenario` });
+            }
           }
-        }
 
-        // Validate RENAMED pairs
-        for (const { from, to } of plan.renamed) {
-          const fromKey = normalizeBlockName(from);
-          const toKey = normalizeBlockName(to);
-          totalDeltas++;
-          if (renamedFrom.has(fromKey)) {
-            issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate FROM in RENAMED: "${from}"` });
-          } else {
-            renamedFrom.add(fromKey);
+          // Validate MODIFIED
+          for (const block of sp.modified) {
+            const key = normalizeBlockName(block.name);
+            totalDeltas++;
+            if (modifiedNames.has(key)) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate requirement in MODIFIED: "${block.name}"` });
+            } else {
+              modifiedNames.add(key);
+            }
+            const requirementText = this.extractRequirementText(block.raw);
+            if (!requirementText) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `MODIFIED "${block.name}" is missing requirement text` });
+            } else if (!this.containsShallOrMust(requirementText)) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `MODIFIED "${block.name}" must contain SHALL or MUST` });
+            }
+            const scenarioCount = this.countScenarios(block.raw);
+            if (scenarioCount < 1) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `MODIFIED "${block.name}" must include at least one scenario` });
+            }
           }
-          if (renamedTo.has(toKey)) {
-            issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate TO in RENAMED: "${to}"` });
-          } else {
-            renamedTo.add(toKey);
-          }
-        }
 
-        // Cross-section conflicts (within the same spec file)
-        for (const n of modifiedNames) {
-          if (removedNames.has(n)) {
-            issues.push({ level: 'ERROR', path: entryPath, message: `Requirement present in both MODIFIED and REMOVED: "${n}"` });
+          // Validate REMOVED (names only)
+          for (const name of sp.removed) {
+            const key = normalizeBlockName(name);
+            totalDeltas++;
+            if (removedNames.has(key)) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate requirement in REMOVED: "${name}"` });
+            } else {
+              removedNames.add(key);
+            }
           }
-          if (addedNames.has(n)) {
-            issues.push({ level: 'ERROR', path: entryPath, message: `Requirement present in both MODIFIED and ADDED: "${n}"` });
+
+          // Validate RENAMED pairs
+          for (const { from, to } of sp.renamed) {
+            const fromKey = normalizeBlockName(from);
+            const toKey = normalizeBlockName(to);
+            totalDeltas++;
+            if (renamedFrom.has(fromKey)) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate FROM in RENAMED: "${from}"` });
+            } else {
+              renamedFrom.add(fromKey);
+            }
+            if (renamedTo.has(toKey)) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `Duplicate TO in RENAMED: "${to}"` });
+            } else {
+              renamedTo.add(toKey);
+            }
           }
-        }
-        for (const n of addedNames) {
-          if (removedNames.has(n)) {
-            issues.push({ level: 'ERROR', path: entryPath, message: `Requirement present in both ADDED and REMOVED: "${n}"` });
+
+          // Cross-operation conflicts (within this target section)
+          for (const n of modifiedNames) {
+            if (removedNames.has(n)) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `Requirement present in both MODIFIED and REMOVED: "${n}"` });
+            }
+            if (addedNames.has(n)) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `Requirement present in both MODIFIED and ADDED: "${n}"` });
+            }
           }
-        }
-        for (const { from, to } of plan.renamed) {
-          const fromKey = normalizeBlockName(from);
-          const toKey = normalizeBlockName(to);
-          if (modifiedNames.has(fromKey)) {
-            issues.push({ level: 'ERROR', path: entryPath, message: `MODIFIED references old name from RENAMED. Use new header for "${to}"` });
+          for (const n of addedNames) {
+            if (removedNames.has(n)) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `Requirement present in both ADDED and REMOVED: "${n}"` });
+            }
           }
-          if (addedNames.has(toKey)) {
-            issues.push({ level: 'ERROR', path: entryPath, message: `RENAMED TO collides with ADDED for "${to}"` });
+          for (const { from, to } of sp.renamed) {
+            const fromKey = normalizeBlockName(from);
+            const toKey = normalizeBlockName(to);
+            if (modifiedNames.has(fromKey)) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `MODIFIED references old name from RENAMED. Use new header for "${to}"` });
+            }
+            if (addedNames.has(toKey)) {
+              issues.push({ level: 'ERROR', path: entryPath, message: `RENAMED TO collides with ADDED for "${to}"` });
+            }
           }
         }
       }

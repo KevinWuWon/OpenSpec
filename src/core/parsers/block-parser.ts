@@ -175,74 +175,81 @@ function escapeRegExp(str: string): string {
 // Delta spec parsing (kept working for Task 2 to generalize further)
 // ---------------------------------------------------------------------------
 
-export interface DeltaPlan {
+export interface SectionDeltaPlan {
+  targetSection: string;
   added: Block[];
   modified: Block[];
-  removed: string[]; // block names
+  removed: string[];
   renamed: Array<{ from: string; to: string }>;
-  sectionPresence: {
-    added: boolean;
-    modified: boolean;
-    removed: boolean;
-    renamed: boolean;
-  };
 }
+
+export interface DeltaPlan {
+  sections: Record<string, SectionDeltaPlan>;
+}
+
+const DELTA_HEADER_REGEX = /^##\s+(ADDED|MODIFIED|REMOVED|RENAMED)\s+(.+?)\s*$/i;
 
 /**
  * Parse a delta-formatted spec change file content into a DeltaPlan with raw blocks.
+ * Matches `## OPERATION SectionName` headers and groups by target section.
+ * Repeated headers targeting the same section are aggregated.
  */
 export function parseDeltaSpec(content: string): DeltaPlan {
   const normalized = normalizeLineEndings(content);
-  const sections = splitTopLevelSections(normalized);
-  const addedLookup = getSectionCaseInsensitive(sections, 'ADDED Requirements');
-  const modifiedLookup = getSectionCaseInsensitive(sections, 'MODIFIED Requirements');
-  const removedLookup = getSectionCaseInsensitive(sections, 'REMOVED Requirements');
-  const renamedLookup = getSectionCaseInsensitive(sections, 'RENAMED Requirements');
-  const added = parseBlocksFromSection(addedLookup.body);
-  const modified = parseBlocksFromSection(modifiedLookup.body);
-  const removedNames = parseRemovedNames(removedLookup.body);
-  const renamedPairs = parseRenamedPairs(renamedLookup.body);
-  return {
-    added,
-    modified,
-    removed: removedNames,
-    renamed: renamedPairs,
-    sectionPresence: {
-      added: addedLookup.found,
-      modified: modifiedLookup.found,
-      removed: removedLookup.found,
-      renamed: renamedLookup.found,
-    },
-  };
-}
+  const lines = normalized.split('\n');
+  const sections: Record<string, SectionDeltaPlan> = {};
 
-function splitTopLevelSections(content: string): Record<string, string> {
-  const lines = content.split('\n');
-  const result: Record<string, string> = {};
-  const indices: Array<{ title: string; index: number; level: number }> = [];
+  // Find all ## delta headers and their body ranges
+  const headerEntries: Array<{ operation: string; targetSection: string; startLine: number }> = [];
   for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/^(##)\s+(.+)$/);
+    const m = lines[i].match(DELTA_HEADER_REGEX);
     if (m) {
-      const level = m[1].length;
-      indices.push({ title: m[2].trim(), index: i, level });
+      headerEntries.push({
+        operation: m[1].toUpperCase(),
+        targetSection: m[2].trim(),
+        startLine: i,
+      });
     }
   }
-  for (let i = 0; i < indices.length; i++) {
-    const current = indices[i];
-    const next = indices[i + 1];
-    const body = lines.slice(current.index + 1, next ? next.index : lines.length).join('\n');
-    result[current.title] = body;
+
+  for (let h = 0; h < headerEntries.length; h++) {
+    const entry = headerEntries[h];
+    const bodyStart = entry.startLine + 1;
+    const bodyEnd = h + 1 < headerEntries.length ? headerEntries[h + 1].startLine : lines.length;
+    const body = lines.slice(bodyStart, bodyEnd).join('\n');
+    const key = entry.targetSection;
+
+    // Ensure section plan exists
+    if (!sections[key]) {
+      sections[key] = {
+        targetSection: key,
+        added: [],
+        modified: [],
+        removed: [],
+        renamed: [],
+      };
+    }
+    const plan = sections[key];
+
+    switch (entry.operation) {
+      case 'ADDED':
+        plan.added.push(...parseBlocksFromSection(body));
+        break;
+      case 'MODIFIED':
+        plan.modified.push(...parseBlocksFromSection(body));
+        break;
+      case 'REMOVED':
+        plan.removed.push(...parseRemovedNames(body));
+        break;
+      case 'RENAMED':
+        plan.renamed.push(...parseRenamedPairs(body));
+        break;
+    }
   }
-  return result;
+
+  return { sections };
 }
 
-function getSectionCaseInsensitive(sections: Record<string, string>, desired: string): { body: string; found: boolean } {
-  const target = desired.toLowerCase();
-  for (const [title, body] of Object.entries(sections)) {
-    if (title.toLowerCase() === target) return { body, found: true };
-  }
-  return { body: '', found: false };
-}
 
 function parseBlocksFromSection(sectionBody: string): Block[] {
   if (!sectionBody) return [];
