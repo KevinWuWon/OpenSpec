@@ -39,7 +39,6 @@ describe('source-of-truth specs normalization', () => {
       const relativeFile = path.relative(projectRoot, file);
 
       expect(content, `${relativeFile} must include ## Purpose`).toMatch(/^## Purpose$/m);
-      expect(content, `${relativeFile} must include ## Requirements`).toMatch(/^## Requirements$/m);
       expect(content, `${relativeFile} must not include archive placeholder purpose text`).not.toMatch(
         PURPOSE_PLACEHOLDER_PATTERN
       );

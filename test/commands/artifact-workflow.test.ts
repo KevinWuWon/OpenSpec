@@ -41,7 +41,7 @@ describe('artifact-workflow CLI commands', () => {
    */
   async function createTestChange(
     changeName: string,
-    artifacts: ('proposal' | 'design' | 'specs' | 'tasks')[] = []
+    artifacts: ('proposal' | 'design' | 'specs' | 'tasks' | 'decisions')[] = []
   ): Promise<string> {
     const changeDir = path.join(changesDir, changeName);
     await fs.mkdir(changeDir, { recursive: true });
@@ -49,8 +49,8 @@ describe('artifact-workflow CLI commands', () => {
     // Always create proposal.md for the change to be detected as active
     // Content varies based on whether 'proposal' is in artifacts list
     const proposalContent = artifacts.includes('proposal')
-      ? '## Why\nTest proposal content that is long enough.\n\n## What Changes\n- **test:** Something'
-      : '## Why\nMinimal proposal.\n\n## What Changes\n- **test:** Placeholder';
+      ? '## Problem\nTest proposal content that is long enough.\n\n## Constraints\nNone.\n\n## Success Criteria\nSomething works.\n\n## Non-goals\nNothing extra.'
+      : '## Problem\nMinimal proposal.\n\n## Constraints\nNone.\n\n## Success Criteria\nPlaceholder.\n\n## Non-goals\nNothing.';
     await fs.writeFile(path.join(changeDir, 'proposal.md'), proposalContent);
 
     if (artifacts.includes('design')) {
@@ -58,7 +58,7 @@ describe('artifact-workflow CLI commands', () => {
     }
 
     if (artifacts.includes('specs')) {
-      // specs artifact uses glob pattern "specs/*.md" - files directly in specs/ directory
+      // specs artifact uses glob pattern "specs/**/*.md" - files in specs/ subdirectories
       const specsDir = path.join(changeDir, 'specs');
       await fs.mkdir(specsDir, { recursive: true });
       await fs.writeFile(path.join(specsDir, 'test-spec.md'), '## Purpose\nTest spec.');
@@ -66,6 +66,10 @@ describe('artifact-workflow CLI commands', () => {
 
     if (artifacts.includes('tasks')) {
       await fs.writeFile(path.join(changeDir, 'tasks.md'), '## Tasks\n- [ ] Task 1');
+    }
+
+    if (artifacts.includes('decisions')) {
+      await fs.writeFile(path.join(changeDir, 'decisions.md'), '## Topic\n\n**Q:** Question\n\n**A:** Answer');
     }
 
     return changeDir;
@@ -80,7 +84,7 @@ describe('artifact-workflow CLI commands', () => {
       const result = await runCLI(['status', '--change', 'scaffolded-change'], { cwd: tempDir });
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('scaffolded-change');
-      expect(result.stdout).toContain('0/4 artifacts complete');
+      expect(result.stdout).toContain('0/5 artifacts complete');
     });
 
     it('shows status for a change with proposal only', async () => {
@@ -91,7 +95,7 @@ describe('artifact-workflow CLI commands', () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('minimal-change');
       expect(result.stdout).toContain('spec-driven');
-      expect(result.stdout).toContain('1/4 artifacts complete');
+      expect(result.stdout).toContain('1/5 artifacts complete');
     });
 
     it('shows status for a change with proposal and design', async () => {
@@ -99,7 +103,7 @@ describe('artifact-workflow CLI commands', () => {
 
       const result = await runCLI(['status', '--change', 'partial-change'], { cwd: tempDir });
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('2/4 artifacts complete');
+      expect(result.stdout).toContain('2/5 artifacts complete');
       expect(result.stdout).toContain('[x]');
     });
 
@@ -116,18 +120,18 @@ describe('artifact-workflow CLI commands', () => {
       expect(json.schemaName).toBe('spec-driven');
       expect(json.isComplete).toBe(false);
       expect(Array.isArray(json.artifacts)).toBe(true);
-      expect(json.artifacts).toHaveLength(4);
+      expect(json.artifacts).toHaveLength(5);
 
       const proposalArtifact = json.artifacts.find((a: any) => a.id === 'proposal');
       expect(proposalArtifact.status).toBe('done');
     });
 
     it('shows complete status when all artifacts are done', async () => {
-      await createTestChange('complete-change', ['proposal', 'design', 'specs', 'tasks']);
+      await createTestChange('complete-change', ['proposal', 'design', 'specs', 'tasks', 'decisions']);
 
       const result = await runCLI(['status', '--change', 'complete-change'], { cwd: tempDir });
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('4/4 artifacts complete');
+      expect(result.stdout).toContain('5/5 artifacts complete');
       expect(result.stdout).toContain('All artifacts complete!');
     });
 
@@ -238,7 +242,7 @@ describe('artifact-workflow CLI commands', () => {
     });
 
     it('shows blocked warning for artifact with unmet dependencies', async () => {
-      // tasks depends on design and specs, which are not done yet
+      // tasks depends on design, which is not done yet
       await createTestChange('blocked-change');
 
       const result = await runCLI(['instructions', 'tasks', '--change', 'blocked-change'], {
