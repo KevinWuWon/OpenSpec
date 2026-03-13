@@ -6,9 +6,12 @@
 
 import ora from 'ora';
 import chalk from 'chalk';
+import * as fs from 'fs';
+import path from 'path';
 import {
   loadChangeContext,
   formatChangeStatus,
+  resolveSchema,
   type ChangeStatus,
 } from '../../core/artifact-graph/index.js';
 import {
@@ -17,6 +20,8 @@ import {
   getAvailableChanges,
   getStatusIndicator,
   getStatusColor,
+  parseTaskItems,
+  type TaskItem,
 } from './shared.js';
 
 // -----------------------------------------------------------------------------
@@ -70,21 +75,39 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
     const context = loadChangeContext(projectRoot, changeName, options.schema);
     const status = formatChangeStatus(context);
 
+    // Load task progress from heading-based tracking if schema has a tracks file
+    const schema = resolveSchema(context.schemaName, projectRoot);
+    const tracksFile = schema.apply?.tracks ?? null;
+    let tasks: TaskItem[] = [];
+    if (tracksFile) {
+      const tracksPath = path.join(context.changeDir, tracksFile);
+      if (fs.existsSync(tracksPath)) {
+        const content = fs.readFileSync(tracksPath, 'utf-8');
+        tasks = parseTaskItems(content);
+      }
+    }
+
     spinner.stop();
 
     if (options.json) {
-      console.log(JSON.stringify(status, null, 2));
+      const total = tasks.length;
+      const complete = tasks.filter(t => t.done).length;
+      console.log(JSON.stringify({
+        ...status,
+        taskProgress: total > 0 ? { total, complete, remaining: total - complete } : undefined,
+        tasks: tasks.length > 0 ? tasks : undefined,
+      }, null, 2));
       return;
     }
 
-    printStatusText(status);
+    printStatusText(status, tasks);
   } catch (error) {
     spinner.stop();
     throw error;
   }
 }
 
-export function printStatusText(status: ChangeStatus): void {
+export function printStatusText(status: ChangeStatus, tasks: TaskItem[] = []): void {
   const doneCount = status.artifacts.filter((a) => a.status === 'done').length;
   const total = status.artifacts.length;
 
@@ -108,5 +131,16 @@ export function printStatusText(status: ChangeStatus): void {
   if (status.isComplete) {
     console.log();
     console.log(chalk.green('All artifacts complete!'));
+  }
+
+  // Task progress from heading-based tracking
+  if (tasks.length > 0) {
+    const tasksDone = tasks.filter(t => t.done).length;
+    console.log();
+    console.log(`Tasks: ${tasksDone}/${tasks.length} complete`);
+    for (const task of tasks) {
+      const mark = task.done ? '[x]' : '[ ]';
+      console.log(`  ${mark} Task ${task.id}: ${task.description}`);
+    }
   }
 }

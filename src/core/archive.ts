@@ -121,7 +121,7 @@ export class ArchiveCommand {
               const candidatePath = path.join(changeSpecsDir, c.name, 'spec.md');
               await fs.access(candidatePath);
               const content = await fs.readFile(candidatePath, 'utf-8');
-              if (/^##\s+(ADDED|MODIFIED|REMOVED|RENAMED)\s+Requirements/m.test(content)) {
+              if (/^##\s+(ADDED|MODIFIED|REMOVED|RENAMED)\s+\S/m.test(content)) {
                 hasDeltaSpecs = true;
                 break;
               }
