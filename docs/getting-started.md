@@ -52,15 +52,15 @@ Each change folder contains artifacts that guide the work:
 
 | Artifact | Purpose |
 |----------|---------|
-| `proposal.md` | The "why" and "what" - captures intent, scope, and approach |
-| `specs/` | Delta specs showing ADDED/MODIFIED/REMOVED requirements |
-| `design.md` | The "how" - technical approach and architecture decisions |
-| `tasks.md` | Implementation checklist with checkboxes |
+| `proposal.md` | The "why" — problem, constraints, success criteria, non-goals |
+| `design.md` | The "how" — overview, architecture, detailed design, non-goals |
+| `tasks.md` | The "steps" — named tasks with files and acceptance criteria |
+| `specs/` | Delta specs showing ADDED/MODIFIED/REMOVED/RENAMED behaviors |
 
 **Artifacts build on each other:**
 
 ```
-proposal ──► specs ──► design ──► tasks ──► implement
+proposal ──► design ──► tasks ──► specs ──► implement
    ▲           ▲          ▲                    │
    └───────────┴──────────┴────────────────────┘
             update as you learn
@@ -79,40 +79,34 @@ Delta specs use sections to indicate the type of change:
 ```markdown
 # Delta for Auth
 
-## ADDED Requirements
+## ADDED Behavior
 
-### Requirement: Two-Factor Authentication
-The system MUST require a second factor during login.
+### Two-Factor Authentication
+The system requires a second factor during login. When a user with 2FA
+enabled submits valid credentials, an OTP challenge is presented and
+login completes only after a valid OTP.
 
-#### Scenario: OTP required
-- GIVEN a user with 2FA enabled
-- WHEN the user submits valid credentials
-- THEN an OTP challenge is presented
+## MODIFIED Behavior
 
-## MODIFIED Requirements
-
-### Requirement: Session Timeout
-The system SHALL expire sessions after 30 minutes of inactivity.
+### Session Timeout
+Sessions expire after 30 minutes of inactivity. When 30 minutes pass
+without activity, the session is invalidated.
 (Previously: 60 minutes)
 
-#### Scenario: Idle timeout
-- GIVEN an authenticated session
-- WHEN 30 minutes pass without activity
-- THEN the session is invalidated
+## REMOVED Behavior
 
-## REMOVED Requirements
-
-### Requirement: Remember Me
-(Deprecated in favor of 2FA)
+### Remember Me
+**Reason:** Deprecated in favor of 2FA.
+**Migration:** Users should re-authenticate each session.
 ```
 
 ### What Happens on Archive
 
 When you archive a change:
 
-1. **ADDED** requirements are appended to the main spec
-2. **MODIFIED** requirements replace the existing version
-3. **REMOVED** requirements are deleted from the main spec
+1. **ADDED** blocks are appended to the matching `##` section in the main spec
+2. **MODIFIED** blocks replace the existing `###` block by heading match
+3. **REMOVED** blocks are deleted from the main spec
 
 The change folder moves to `openspec/changes/archive/` for audit history.
 
@@ -126,10 +120,10 @@ Let's walk through adding dark mode to an application.
 You: /opsx:propose add-dark-mode
 
 AI:  Created openspec/changes/add-dark-mode/
-     ✓ proposal.md — why we're doing this, what's changing
-     ✓ specs/       — requirements and scenarios
+     ✓ proposal.md — problem, constraints, success criteria
      ✓ design.md    — technical approach
-     ✓ tasks.md     — implementation checklist
+     ✓ tasks.md     — implementation plan
+     ✓ specs/       — delta specs for behavior changes
      Ready for implementation!
 ```
 
@@ -137,65 +131,75 @@ If you've enabled the expanded workflow profile, you can also do this as two ste
 
 ### 2. What Gets Created
 
-**proposal.md** - Captures the intent:
+**proposal.md** — Captures why and what success looks like:
 
 ```markdown
 # Proposal: Add Dark Mode
 
-## Intent
-Users have requested a dark mode option to reduce eye strain
-during nighttime usage.
+## Problem
+Users report eye strain during nighttime usage. There is no way to
+switch to a darker color scheme or detect system preferences.
 
-## Scope
-- Add theme toggle in settings
-- Support system preference detection
-- Persist preference in localStorage
+## Constraints
+- Must work with existing CSS architecture
+- No additional runtime dependencies
 
-## Approach
-Use CSS custom properties for theming with a React context
-for state management.
+## Success Criteria
+- Users can toggle between light and dark themes
+- System preference is detected on first load
+- Preference persists across sessions via localStorage
+
+## Non-goals
+- Custom color themes (future work)
+- Per-page theme overrides
 ```
 
-**specs/ui/spec.md** - Delta showing new requirements:
+**specs/ui/spec.md** — Delta showing new behaviors:
 
 ```markdown
 # Delta for UI
 
-## ADDED Requirements
+## ADDED Behavior
 
-### Requirement: Theme Selection
-The system SHALL allow users to choose between light and dark themes.
-
-#### Scenario: Manual toggle
-- GIVEN a user on any page
-- WHEN the user clicks the theme toggle
-- THEN the theme switches immediately
-- AND the preference persists across sessions
-
-#### Scenario: System preference
-- GIVEN a user with no saved preference
-- WHEN the application loads
-- THEN the system's preferred color scheme is used
+### Theme Selection
+Users can choose between light and dark themes. Clicking the theme
+toggle switches the theme immediately and the preference persists
+across sessions. On first load with no saved preference, the system's
+preferred color scheme is used.
 ```
 
-**tasks.md** - Implementation checklist:
+**tasks.md** — Implementation plan:
 
 ```markdown
 # Tasks
 
-## 1. Theme Infrastructure
-- [ ] 1.1 Create ThemeContext with light/dark state
-- [ ] 1.2 Add CSS custom properties for colors
-- [ ] 1.3 Implement localStorage persistence
+### Task 1: Create theme infrastructure (feature)
 
-## 2. UI Components
-- [ ] 2.1 Create ThemeToggle component
-- [ ] 2.2 Add toggle to settings page
-- [ ] 2.3 Update Header to include quick toggle
+Set up ThemeContext with light/dark state, CSS custom properties,
+and localStorage persistence.
 
-## 3. Styling
-- [ ] 3.1 Define dark theme color palette
-- [ ] 3.2 Update components to use CSS variables
+**Files:** `src/contexts/ThemeContext.tsx`, `src/styles/globals.css`
+**Acceptance criteria:**
+- ThemeContext provides current theme and toggle function
+- CSS variables switch when theme changes
+- Preference survives page reload
+
+### Task 2: Build UI components (feature)
+
+Create ThemeToggle component and wire it into settings and header.
+
+**Files:** `src/components/ThemeToggle.tsx`, `src/pages/Settings.tsx`
+**Acceptance criteria:**
+- Toggle switches theme immediately on click
+- Toggle reflects current theme state
+
+### Task 3: Define dark theme palette (feature)
+
+Define dark color palette and update components to use CSS variables.
+
+**Files:** `src/styles/globals.css`, `src/styles/themes.css`
+**Acceptance criteria:**
+- All text meets WCAG AA contrast ratios in dark mode
 ```
 
 ### 3. Implement

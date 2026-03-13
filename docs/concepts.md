@@ -51,7 +51,7 @@ This separation is key. You can work on multiple changes in parallel without con
 
 ## Specs
 
-Specs describe your system's behavior using structured requirements and scenarios.
+Specs describe your system's behavior using plain prose organized under named headings.
 
 ### Structure
 
@@ -75,7 +75,7 @@ Organize specs by domain — logical groupings that make sense for your system. 
 
 ### Spec Format
 
-A spec contains requirements, and each requirement has scenarios:
+A spec uses plain prose organized under `##` sections with `###` blocks as merge keys:
 
 ```markdown
 # Auth Specification
@@ -83,31 +83,18 @@ A spec contains requirements, and each requirement has scenarios:
 ## Purpose
 Authentication and session management for the application.
 
-## Requirements
+## Behavior
 
-### Requirement: User Authentication
-The system SHALL issue a JWT token upon successful login.
+### User Authentication
+The system issues a JWT token upon successful login. When a user submits
+valid credentials, a JWT token is returned and the user is redirected to
+the dashboard. When credentials are invalid, an error message is displayed
+and no token is issued.
 
-#### Scenario: Valid credentials
-- GIVEN a user with valid credentials
-- WHEN the user submits login form
-- THEN a JWT token is returned
-- AND the user is redirected to dashboard
-
-#### Scenario: Invalid credentials
-- GIVEN invalid credentials
-- WHEN the user submits login form
-- THEN an error message is displayed
-- AND no token is issued
-
-### Requirement: Session Expiration
-The system MUST expire sessions after 30 minutes of inactivity.
-
-#### Scenario: Idle timeout
-- GIVEN an authenticated session
-- WHEN 30 minutes pass without activity
-- THEN the session is invalidated
-- AND the user must re-authenticate
+### Session Expiration
+Sessions expire after 30 minutes of inactivity. When 30 minutes pass
+without activity, the session is invalidated and the user must
+re-authenticate.
 ```
 
 **Key elements:**
@@ -115,23 +102,16 @@ The system MUST expire sessions after 30 minutes of inactivity.
 | Element | Purpose |
 |---------|---------|
 | `## Purpose` | High-level description of this spec's domain |
-| `### Requirement:` | A specific behavior the system must have |
-| `#### Scenario:` | A concrete example of the requirement in action |
-| SHALL/MUST/SHOULD | RFC 2119 keywords indicating requirement strength |
+| `## Behavior` (or other `##` sections) | Groups of related behaviors |
+| `### Name` | A specific behavior — the heading text is the merge key |
 
 ### Why Structure Specs This Way
 
-**Requirements are the "what"** — they state what the system should do without specifying implementation.
+**Plain prose is easier to read and write.** No special markup or keywords to remember — just describe the behavior in natural language.
 
-**Scenarios are the "when"** — they provide concrete examples that can be verified. Good scenarios:
-- Are testable (you could write an automated test for them)
-- Cover both happy path and edge cases
-- Use Given/When/Then or similar structured format
+**`###` headings are merge keys.** The delta system uses `###` heading text to match blocks between specs and deltas. This makes merging predictable without requiring formal identifiers.
 
-**RFC 2119 keywords** (SHALL, MUST, SHOULD, MAY) communicate intent:
-- **MUST/SHALL** — absolute requirement
-- **SHOULD** — recommended, but exceptions exist
-- **MAY** — optional
+**`##` sections organize related behaviors.** Group behaviors into logical sections like `## Behavior`, `## Error Handling`, `## Security`. Delta operations target these sections (e.g., `## ADDED Behavior`).
 
 ### What a Spec Is (and Is Not)
 
@@ -141,7 +121,7 @@ Good spec content:
 - Observable behavior users or downstream systems rely on
 - Inputs, outputs, and error conditions
 - External constraints (security, privacy, reliability, compatibility)
-- Scenarios that can be tested or explicitly validated
+- Concrete examples that can be tested or validated
 
 Avoid in specs:
 - Internal class/function names
@@ -173,7 +153,7 @@ Most changes should stay in Lite mode.
 In many teams, humans explore and agents draft artifacts. The intended loop is:
 
 1. Human provides intent, context, and constraints.
-2. Agent converts this into behavior-first requirements and scenarios.
+2. Agent converts this into behavior descriptions in plain prose.
 3. Agent keeps implementation detail in `design.md` and `tasks.md`, not `spec.md`.
 4. Validation confirms structure and clarity before implementation.
 
@@ -220,47 +200,46 @@ Artifacts are the documents within a change that guide the work.
 ### The Artifact Flow
 
 ```
-proposal ──────► specs ──────► design ──────► tasks ──────► implement
+proposal ──────► design ──────► tasks ──────► specs ──────► implement
     │               │             │              │
-   why            what           how          steps
- + scope        changes       approach      to take
+   why             how          steps          what
+ + scope        approach      to take       changes
 ```
 
-Artifacts build on each other. Each artifact provides context for the next.
+Artifacts build on each other. Each artifact provides context for the next. Specs come last — they capture what changed after you know the implementation plan.
 
 ### Artifact Types
 
 #### Proposal (`proposal.md`)
 
-The proposal captures **intent**, **scope**, and **approach** at a high level.
+The proposal captures **why** this change matters and **what success looks like**.
 
 ```markdown
 # Proposal: Add Dark Mode
 
-## Intent
-Users have requested a dark mode option to reduce eye strain
-during nighttime usage and match system preferences.
+## Problem
+Users report eye strain during nighttime usage. There is no way to
+switch to a darker color scheme or detect system preferences.
 
-## Scope
-In scope:
-- Theme toggle in settings
-- System preference detection
-- Persist preference in localStorage
+## Constraints
+- Must work with existing CSS architecture
+- No additional runtime dependencies
+- Must not break existing theme
 
-Out of scope:
+## Success Criteria
+- Users can toggle between light and dark themes
+- System preference is detected on first load
+- Preference persists across sessions via localStorage
+
+## Non-goals
 - Custom color themes (future work)
 - Per-page theme overrides
-
-## Approach
-Use CSS custom properties for theming with a React context
-for state management. Detect system preference on first load,
-allow manual override.
 ```
 
 **When to update the proposal:**
 - Scope changes (narrowing or expanding)
-- Intent clarifies (better understanding of the problem)
-- Approach fundamentally shifts
+- Problem understanding deepens
+- Constraints change
 
 #### Specs (delta specs in `specs/`)
 
@@ -268,30 +247,17 @@ Delta specs describe **what's changing** relative to the current specs. See [Del
 
 #### Design (`design.md`)
 
-The design captures **technical approach** and **architecture decisions**.
+The design captures **how** the change will be implemented.
 
 ````markdown
 # Design: Add Dark Mode
 
-## Technical Approach
-Theme state managed via React Context to avoid prop drilling.
-CSS custom properties enable runtime switching without class toggling.
+## Overview
+Add theme switching using React Context for state and CSS custom
+properties for styling. Detect system preference on first load,
+persist user choice in localStorage.
 
-## Architecture Decisions
-
-### Decision: Context over Redux
-Using React Context for theme state because:
-- Simple binary state (light/dark)
-- No complex state transitions
-- Avoids adding Redux dependency
-
-### Decision: CSS Custom Properties
-Using CSS variables instead of CSS-in-JS because:
-- Works with existing stylesheet
-- No runtime overhead
-- Browser-native solution
-
-## Data Flow
+## Architecture
 ```
 ThemeProvider (context)
        │
@@ -302,10 +268,24 @@ ThemeToggle ◄──► localStorage
 CSS Variables (applied to :root)
 ```
 
-## File Changes
+## Detailed Design
+
+### Theme state management
+React Context holds the current theme (light/dark). Chosen over
+Redux because it's simple binary state with no complex transitions.
+
+### CSS custom properties
+CSS variables on `:root` enable runtime switching without class
+toggling. Works with existing stylesheets, no runtime overhead.
+
+### File changes
 - `src/contexts/ThemeContext.tsx` (new)
 - `src/components/ThemeToggle.tsx` (new)
 - `src/styles/globals.css` (modified)
+
+## Non-goals
+- CSS-in-JS migration
+- Server-side theme rendering
 ````
 
 **When to update the design:**
@@ -315,33 +295,46 @@ CSS Variables (applied to :root)
 
 #### Tasks (`tasks.md`)
 
-Tasks are the **implementation checklist** — concrete steps with checkboxes.
+Tasks are the **implementation plan** — concrete steps with files and acceptance criteria.
 
 ```markdown
 # Tasks
 
-## 1. Theme Infrastructure
-- [ ] 1.1 Create ThemeContext with light/dark state
-- [ ] 1.2 Add CSS custom properties for colors
-- [ ] 1.3 Implement localStorage persistence
-- [ ] 1.4 Add system preference detection
+### Task 1: Create theme infrastructure (feature)
 
-## 2. UI Components
-- [ ] 2.1 Create ThemeToggle component
-- [ ] 2.2 Add toggle to settings page
-- [ ] 2.3 Update Header to include quick toggle
+Set up ThemeContext with light/dark state, CSS custom properties
+for colors, localStorage persistence, and system preference detection.
 
-## 3. Styling
-- [ ] 3.1 Define dark theme color palette
-- [ ] 3.2 Update components to use CSS variables
-- [ ] 3.3 Test contrast ratios for accessibility
+**Files:** `src/contexts/ThemeContext.tsx`, `src/styles/globals.css`
+**Acceptance criteria:**
+- ThemeContext provides current theme and toggle function
+- CSS variables switch when theme changes
+- Preference survives page reload
+
+### Task 2: Build UI components (feature)
+
+Create ThemeToggle component and add it to settings page and header.
+
+**Files:** `src/components/ThemeToggle.tsx`, `src/pages/Settings.tsx`, `src/components/Header.tsx`
+**Acceptance criteria:**
+- Toggle switches theme immediately on click
+- Toggle reflects current theme state
+
+### Task 3: Define dark theme palette (feature)
+
+Define dark theme color palette and update components to use CSS variables.
+Test contrast ratios for accessibility.
+
+**Files:** `src/styles/globals.css`, `src/styles/themes.css`
+**Acceptance criteria:**
+- All text meets WCAG AA contrast ratios in dark mode
+- No hard-coded colors remain in component styles
 ```
 
 **Task best practices:**
-- Group related tasks under headings
-- Use hierarchical numbering (1.1, 1.2, etc.)
+- Each task has a name, type, files, and acceptance criteria
 - Keep tasks small enough to complete in one session
-- Check tasks off as you complete them
+- Append ` — done` to the heading when complete
 
 ## Delta Specs
 
@@ -352,47 +345,38 @@ Delta specs are the key concept that makes OpenSpec work for brownfield developm
 ```markdown
 # Delta for Auth
 
-## ADDED Requirements
+## ADDED Behavior
 
-### Requirement: Two-Factor Authentication
-The system MUST support TOTP-based two-factor authentication.
+### Two-Factor Authentication
+The system supports TOTP-based two-factor authentication. When a user
+without 2FA enabled turns it on in settings, a QR code is displayed
+for authenticator app setup, and the user must verify with a code
+before activation. When a user with 2FA enabled submits valid
+credentials, an OTP challenge is presented and login completes only
+after a valid OTP.
 
-#### Scenario: 2FA enrollment
-- GIVEN a user without 2FA enabled
-- WHEN the user enables 2FA in settings
-- THEN a QR code is displayed for authenticator app setup
-- AND the user must verify with a code before activation
+## MODIFIED Behavior
 
-#### Scenario: 2FA login
-- GIVEN a user with 2FA enabled
-- WHEN the user submits valid credentials
-- THEN an OTP challenge is presented
-- AND login completes only after valid OTP
-
-## MODIFIED Requirements
-
-### Requirement: Session Expiration
-The system MUST expire sessions after 15 minutes of inactivity.
+### Session Expiration
+Sessions expire after 15 minutes of inactivity. When 15 minutes pass
+without activity, the session is invalidated.
 (Previously: 30 minutes)
 
-#### Scenario: Idle timeout
-- GIVEN an authenticated session
-- WHEN 15 minutes pass without activity
-- THEN the session is invalidated
+## REMOVED Behavior
 
-## REMOVED Requirements
-
-### Requirement: Remember Me
-(Deprecated in favor of 2FA. Users should re-authenticate each session.)
+### Remember Me
+**Reason:** Deprecated in favor of 2FA.
+**Migration:** Users should re-authenticate each session.
 ```
 
 ### Delta Sections
 
 | Section | Meaning | What Happens on Archive |
 |---------|---------|------------------------|
-| `## ADDED Requirements` | New behavior | Appended to main spec |
-| `## MODIFIED Requirements` | Changed behavior | Replaces existing requirement |
-| `## REMOVED Requirements` | Deprecated behavior | Deleted from main spec |
+| `## ADDED {Section}` | New behavior | Appended to matching `##` section in main spec |
+| `## MODIFIED {Section}` | Changed behavior | Replaces existing `###` block by heading match |
+| `## REMOVED {Section}` | Deprecated behavior | Deleted from main spec |
+| `## RENAMED {Section}` | Renamed block | Updates the `###` heading text |
 
 ### Why Deltas Instead of Full Specs
 
@@ -418,41 +402,29 @@ artifacts:
     generates: proposal.md
     requires: []              # No dependencies, can create first
 
-  - id: specs
-    generates: specs/**/*.md
-    requires: [proposal]      # Needs proposal before creating
-
   - id: design
     generates: design.md
-    requires: [proposal]      # Can create in parallel with specs
+    requires: [proposal]      # Needs proposal before creating
 
   - id: tasks
     generates: tasks.md
-    requires: [specs, design] # Needs both specs and design first
+    requires: [design]        # Needs design before creating
+
+  - id: specs
+    generates: specs/**/*.md
+    requires: [tasks]         # Comes last, after implementation plan
 ```
 
-**Artifacts form a dependency graph:**
+**Artifacts form a dependency chain:**
 
 ```
-                    proposal
-                   (root node)
-                       │
-         ┌─────────────┴─────────────┐
-         │                           │
-         ▼                           ▼
-      specs                       design
-   (requires:                  (requires:
-    proposal)                   proposal)
-         │                           │
-         └─────────────┬─────────────┘
-                       │
-                       ▼
-                    tasks
-                (requires:
-                specs, design)
+proposal ──► design ──► tasks ──► specs
+   │            │          │         │
+  why          how       steps     what
++ scope     approach    to take  changes
 ```
 
-**Dependencies are enablers, not gates.** They show what's possible to create, not what you must create next. You can skip design if you don't need it. You can create specs before or after design — both depend only on proposal.
+**Dependencies are enablers, not gates.** They show what's possible to create, not what you must create next. You can skip design if you don't need it. A change with only `proposal + design + tasks` (no specs) is valid — delta enforcement activates only once spec artifacts are present.
 
 ### Built-in Schemas
 
@@ -461,10 +433,10 @@ artifacts:
 The standard workflow for spec-driven development:
 
 ```
-proposal → specs → design → tasks → implement
+proposal → design → tasks → specs → implement
 ```
 
-Best for: Most feature work where you want to agree on specs before implementation.
+Best for: Most feature work where you want to plan the approach, define tasks, then capture spec changes.
 
 ### Custom Schemas
 
@@ -569,7 +541,7 @@ openspec/
 │           ▼                                                                  │
 │   ┌────────────────┐                                                         │
 │   │  2. CREATE     │  /opsx:ff or /opsx:continue (expanded workflow)         │
-│   │     ARTIFACTS  │  Creates proposal → specs → design → tasks              │
+│   │     ARTIFACTS  │  Creates proposal → design → tasks → specs              │
 │   │                │  (based on schema dependencies)                         │
 │   └───────┬────────┘                                                         │
 │           │                                                                  │
@@ -611,13 +583,14 @@ openspec/
 |------|------------|
 | **Artifact** | A document within a change (proposal, design, tasks, or delta specs) |
 | **Archive** | The process of completing a change and merging its deltas into main specs |
+| **Block** | A `###` heading and its content — the merge key used by the delta system |
 | **Change** | A proposed modification to the system, packaged as a folder with artifacts |
-| **Delta spec** | A spec that describes changes (ADDED/MODIFIED/REMOVED) relative to current specs |
+| **Decisions** | Optional Q&A artifact capturing design decisions made during planning |
+| **Delta spec** | A spec that describes changes (ADDED/MODIFIED/REMOVED/RENAMED) relative to current specs |
 | **Domain** | A logical grouping for specs (e.g., `auth/`, `payments/`) |
-| **Requirement** | A specific behavior the system must have |
-| **Scenario** | A concrete example of a requirement, typically in Given/When/Then format |
 | **Schema** | A definition of artifact types and their dependencies |
-| **Spec** | A specification describing system behavior, containing requirements and scenarios |
+| **Section** | A `##` heading in a spec that groups related `###` blocks |
+| **Spec** | A specification describing system behavior in plain prose under named headings |
 | **Source of truth** | The `openspec/specs/` directory, containing the current agreed-upon behavior |
 
 ## Next Steps

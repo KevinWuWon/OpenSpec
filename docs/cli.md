@@ -245,9 +245,8 @@ openspec show [item-name] [options]
 
 | Option | Description |
 |--------|-------------|
-| `--requirements` | Show only requirements, exclude scenarios (JSON mode) |
-| `--no-scenarios` | Exclude scenario content (JSON mode) |
-| `-r, --requirement <id>` | Show specific requirement by 1-based index (JSON mode) |
+| `--blocks` | Show only blocks, exclude body content (JSON mode) |
+| `-b, --block <id>` | Show specific block by 1-based index (JSON mode) |
 
 **Examples:**
 
@@ -321,7 +320,7 @@ openspec validate --all --strict --concurrency 12
 Validating add-dark-mode...
   ✓ proposal.md valid
   ✓ specs/ui/spec.md valid
-  ⚠ design.md: missing "Technical Approach" section
+  ⚠ design.md: missing "Overview" section
 
 1 warning found
 ```
@@ -336,7 +335,7 @@ Validating add-dark-mode...
       {
         "name": "add-dark-mode",
         "valid": true,
-        "warnings": ["design.md: missing 'Technical Approach' section"]
+        "warnings": ["design.md: missing 'Overview' section"]
       }
     ]
   },
@@ -440,9 +439,9 @@ Schema: spec-driven
 Progress: 2/4 artifacts complete
 
 [x] proposal
-[ ] design
-[x] specs
-[-] tasks (blocked by: design)
+[x] design
+[ ] tasks
+[-] specs (blocked by: tasks)
 ```
 
 **Output (JSON):**
@@ -455,9 +454,9 @@ Progress: 2/4 artifacts complete
   "applyRequires": ["tasks"],
   "artifacts": [
     {"id": "proposal", "outputPath": "proposal.md", "status": "done"},
-    {"id": "design", "outputPath": "design.md", "status": "ready"},
-    {"id": "specs", "outputPath": "specs/**/*.md", "status": "done"},
-    {"id": "tasks", "outputPath": "tasks.md", "status": "blocked", "missingDeps": ["design"]}
+    {"id": "design", "outputPath": "design.md", "status": "done"},
+    {"id": "tasks", "outputPath": "tasks.md", "status": "ready"},
+    {"id": "specs", "outputPath": "specs/**/*.md", "status": "blocked", "missingDeps": ["tasks"]}
   ]
 }
 ```
@@ -582,7 +581,7 @@ Available schemas:
 
   spec-driven (package)
     The default spec-driven development workflow
-    Flow: proposal → specs → design → tasks
+    Flow: proposal → design → tasks → specs
 
   my-custom (project)
     Custom workflow for this project

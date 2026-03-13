@@ -18,7 +18,7 @@ Traditional (phase-locked):
 
 OPSX (fluid actions):
 
-  proposal ──► specs ──► design ──► tasks ──► implement
+  proposal ──► design ──► tasks ──► specs ──► implement
 ```
 
 **Key principles:**
@@ -75,9 +75,9 @@ You: /opsx:ff
 
 AI:  Creating all planning artifacts...
      ✓ proposal.md
-     ✓ specs/
      ✓ design.md
      ✓ tasks.md
+     ✓ specs/
      Ready for implementation!
 
 You: /opsx:apply
@@ -240,9 +240,9 @@ You: /opsx:verify
 AI:  Verifying add-auth...
 
      COMPLETENESS
-     ✓ All 12 tasks in tasks.md are checked
-     ✓ All requirements in specs have corresponding code
-     ⚠ Scenario "Session timeout after inactivity" not tested
+     ✓ All 12 tasks in tasks.md are done
+     ✓ All spec behaviors have corresponding code
+     ⚠ "Session timeout after inactivity" not tested
 
      CORRECTNESS
      ✓ Implementation matches spec intent
@@ -269,7 +269,7 @@ AI:  Verifying add-auth...
 
 | Dimension | What it validates |
 |-----------|------------------|
-| Completeness | All tasks done, all requirements implemented, scenarios covered |
+| Completeness | All tasks done, all spec behaviors implemented, examples covered |
 | Correctness | Implementation matches spec intent, edge cases handled |
 | Coherence | Design decisions reflected in code, patterns consistent |
 
@@ -286,9 +286,9 @@ AI:  Archiving add-auth...
 
      Artifact status:
      ✓ proposal.md exists
-     ✓ specs/ exists
      ✓ design.md exists
-     ✓ tasks.md exists (12/12 tasks complete)
+     ✓ tasks.md exists (all tasks done)
+     ✓ specs/ exists
 
      Delta specs: Not yet synced to main
      → Would you like to sync now?
@@ -373,7 +373,7 @@ One logical unit of work per change. If you're doing "add feature X and also ref
 - Can ship independently
 - Simpler rollback if needed
 
-### Use `/opsx:explore` for Unclear Requirements
+### Use `/opsx:explore` for Unclear Problems
 
 Before committing to a change, explore the problem space:
 
@@ -406,8 +406,8 @@ You: /opsx:verify
 
 AI:  Verifying add-dark-mode...
 
-     ✓ All tasks in tasks.md are checked
-     ✓ Requirements in specs have corresponding code
+     ✓ All tasks in tasks.md are done
+     ✓ Spec behaviors have corresponding code
      ✓ Design decisions are reflected in implementation
 
      Ready to archive!
