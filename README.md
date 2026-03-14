@@ -53,10 +53,10 @@ Using OpenSpec in a team? [Email here](mailto:teams@openspec.dev) for access to 
 ```text
 You: /opsx:propose add-dark-mode
 AI:  Created openspec/changes/add-dark-mode/
-     ✓ proposal.md — why we're doing this, what's changing
-     ✓ specs/       — requirements and scenarios
+     ✓ proposal.md — problem, constraints, success criteria
      ✓ design.md    — technical approach
-     ✓ tasks.md     — implementation checklist
+     ✓ tasks.md     — implementation plan
+     ✓ specs/       — delta specs for behavior changes
      Ready for implementation!
 
 You: /opsx:apply

@@ -98,12 +98,12 @@ The artifact types and their purpose depend on the schema. Use the \`instruction
 
 Common artifact patterns:
 
-**spec-driven schema** (proposal → specs → design → tasks):
-- **proposal.md**: Ask user about the change if not clear. Fill in Why, What Changes, Capabilities, Impact.
-  - The Capabilities section is critical - each capability listed will need a spec file.
-- **specs/<capability>/spec.md**: Create one spec per capability listed in the proposal's Capabilities section (use the capability name, not the change name).
-- **design.md**: Document technical decisions, architecture, and implementation approach.
-- **tasks.md**: Break down implementation into checkboxed tasks.
+**spec-driven schema** (proposal → design → tasks → specs):
+- **proposal.md**: Ask user about the change if not clear. Fill in Problem, Constraints, Success Criteria, Non-goals.
+- **design.md**: Document architecture and implementation approach (Overview/Architecture/Detailed Design/Non-goals).
+- **tasks.md**: Break down implementation into numbered task sections (\`### Task N: Name (type)\`) with file lists and acceptance criteria.
+- **specs/<capability>/spec.md**: Create delta specs using \`## ADDED {Section}\` / \`### {Name}\` with prose descriptions.
+- **decisions.md** (optional): Capture Q&A from exploration phase.
 
 For other schemas, follow the \`instruction\` field from the CLI output.
 
@@ -217,12 +217,12 @@ The artifact types and their purpose depend on the schema. Use the \`instruction
 
 Common artifact patterns:
 
-**spec-driven schema** (proposal → specs → design → tasks):
-- **proposal.md**: Ask user about the change if not clear. Fill in Why, What Changes, Capabilities, Impact.
-  - The Capabilities section is critical - each capability listed will need a spec file.
-- **specs/<capability>/spec.md**: Create one spec per capability listed in the proposal's Capabilities section (use the capability name, not the change name).
-- **design.md**: Document technical decisions, architecture, and implementation approach.
-- **tasks.md**: Break down implementation into checkboxed tasks.
+**spec-driven schema** (proposal → design → tasks → specs):
+- **proposal.md**: Ask user about the change if not clear. Fill in Problem, Constraints, Success Criteria, Non-goals.
+- **design.md**: Document architecture and implementation approach (Overview/Architecture/Detailed Design/Non-goals).
+- **tasks.md**: Break down implementation into numbered task sections (\`### Task N: Name (type)\`) with file lists and acceptance criteria.
+- **specs/<capability>/spec.md**: Create delta specs using \`## ADDED {Section}\` / \`### {Name}\` with prose descriptions.
+- **decisions.md** (optional): Capture Q&A from exploration phase.
 
 For other schemas, follow the \`instruction\` field from the CLI output.
 

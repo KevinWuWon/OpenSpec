@@ -1,19 +1,15 @@
-## Context
+## Overview
 
-<!-- Background and current state -->
+<!-- One paragraph. What and why. -->
 
-## Goals / Non-Goals
+## Architecture
 
-**Goals:**
-<!-- What this design aims to achieve -->
+<!-- Diagrams, data flow, system structure. -->
 
-**Non-Goals:**
-<!-- What is explicitly out of scope -->
+## Detailed Design
 
-## Decisions
+<!-- Organized by concept. Data models, APIs, integration points. -->
 
-<!-- Key design decisions and rationale -->
+## Non-goals
 
-## Risks / Trade-offs
-
-<!-- Known risks and trade-offs -->
+<!-- What this design explicitly avoids. -->

@@ -42,7 +42,7 @@ export function getArchiveChangeSkillTemplate(): SkillTemplate {
 
    Read the tasks file (typically \`tasks.md\`) to check for incomplete tasks.
 
-   Count tasks marked with \`- [ ]\` (incomplete) vs \`- [x]\` (complete).
+   Count tasks by parsing \`### Task N:\` headings — tasks with \`— done\` suffix are complete, others are incomplete.
 
    **If incomplete tasks found:**
    - Display warning showing count of incomplete tasks
@@ -157,7 +157,7 @@ export function getOpsxArchiveCommandTemplate(): CommandTemplate {
 
    Read the tasks file (typically \`tasks.md\`) to check for incomplete tasks.
 
-   Count tasks marked with \`- [ ]\` (incomplete) vs \`- [x]\` (complete).
+   Count tasks by parsing \`### Task N:\` headings — tasks with \`— done\` suffix are complete, others are incomplete.
 
    **If incomplete tasks found:**
    - Display warning showing count of incomplete tasks

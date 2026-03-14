@@ -167,7 +167,7 @@ export class ListCommand {
       return;
     }
 
-    type SpecInfo = { id: string; requirementCount: number };
+    type SpecInfo = { id: string; blockCount: number };
     const specs: SpecInfo[] = [];
     for (const id of specDirs) {
       const specPath = join(specsDir, id, 'spec.md');
@@ -175,10 +175,11 @@ export class ListCommand {
         const content = readFileSync(specPath, 'utf-8');
         const parser = new MarkdownParser(content);
         const spec = parser.parseSpec(id);
-        specs.push({ id, requirementCount: spec.requirements.length });
+        const blockCount = Object.values(spec.sections).reduce((sum, s) => sum + s.blocks.length, 0);
+        specs.push({ id, blockCount });
       } catch {
         // If spec cannot be read or parsed, include with 0 count
-        specs.push({ id, requirementCount: 0 });
+        specs.push({ id, blockCount: 0 });
       }
     }
 
@@ -188,7 +189,7 @@ export class ListCommand {
     const nameWidth = Math.max(...specs.map(s => s.id.length));
     for (const spec of specs) {
       const padded = spec.id.padEnd(nameWidth);
-      console.log(`${padding}${padded}     requirements ${spec.requirementCount}`);
+      console.log(`${padding}${padded}     blocks ${spec.blockCount}`);
     }
   }
 }

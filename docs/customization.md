@@ -203,17 +203,21 @@ Templates are markdown files that guide the AI. They're injected into the prompt
 
 ```markdown
 <!-- templates/proposal.md -->
-## Why
+## Problem
 
-<!-- Explain the motivation for this change. What problem does this solve? -->
+<!-- What problem does this change solve? Why is it needed? -->
 
-## What Changes
+## Constraints
 
-<!-- Describe what will change. Be specific about new capabilities or modifications. -->
+<!-- What rules or boundaries apply? -->
 
-## Impact
+## Success Criteria
 
-<!-- Affected code, APIs, dependencies, systems -->
+<!-- How will we know this change is complete and correct? -->
+
+## Non-goals
+
+<!-- What is explicitly out of scope? -->
 ```
 
 Templates can include:

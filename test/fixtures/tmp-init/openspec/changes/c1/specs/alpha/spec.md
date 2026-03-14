@@ -1,8 +1,6 @@
 ## ADDED Requirements
-### Requirement: Parser SHALL accept CRLF change proposals
-The parser SHALL accept CRLF change proposals without manual edits.
 
-#### Scenario: Validate CRLF change
-- **GIVEN** a change proposal saved with CRLF line endings
-- **WHEN** a developer runs openspec validate on the proposal
-- **THEN** validation succeeds without section errors
+### Parser accepts CRLF change proposals
+The parser accepts CRLF change proposals without manual edits.
+When a change proposal is saved with CRLF line endings, the developer
+can run openspec validate on the proposal and validation succeeds.

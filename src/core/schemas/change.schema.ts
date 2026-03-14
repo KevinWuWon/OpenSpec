@@ -1,10 +1,8 @@
 import { z } from 'zod';
-import { RequirementSchema } from './base.schema.js';
-import { 
-  MIN_WHY_SECTION_LENGTH,
-  MAX_WHY_SECTION_LENGTH,
+import { BlockSchema } from './base.schema.js';
+import {
   MAX_DELTAS_PER_CHANGE,
-  VALIDATION_MESSAGES 
+  VALIDATION_MESSAGES
 } from '../validation/constants.js';
 
 export const DeltaOperationType = z.enum(['ADDED', 'MODIFIED', 'REMOVED', 'RENAMED']);
@@ -13,22 +11,25 @@ export const DeltaSchema = z.object({
   spec: z.string().min(1, VALIDATION_MESSAGES.DELTA_SPEC_EMPTY),
   operation: DeltaOperationType,
   description: z.string().min(1, VALIDATION_MESSAGES.DELTA_DESCRIPTION_EMPTY),
-  requirement: RequirementSchema.optional(),
-  requirements: z.array(RequirementSchema).optional(),
+  requirement: BlockSchema.optional(),
+  requirements: z.array(BlockSchema).optional(),
   rename: z.object({
     from: z.string(),
     to: z.string(),
   }).optional(),
 });
 
+/**
+ * ChangeSchema — proposal sections are required; deltas may be empty for
+ * proposal/design/tasks-only changes (specs come last in the workflow).
+ */
 export const ChangeSchema = z.object({
   name: z.string().min(1, VALIDATION_MESSAGES.CHANGE_NAME_EMPTY),
-  why: z.string()
-    .min(MIN_WHY_SECTION_LENGTH, VALIDATION_MESSAGES.CHANGE_WHY_TOO_SHORT)
-    .max(MAX_WHY_SECTION_LENGTH, VALIDATION_MESSAGES.CHANGE_WHY_TOO_LONG),
-  whatChanges: z.string().min(1, VALIDATION_MESSAGES.CHANGE_WHAT_EMPTY),
+  problem: z.string().min(1),
+  constraints: z.string().min(1),
+  successCriteria: z.string().min(1),
+  nonGoals: z.string().min(1),
   deltas: z.array(DeltaSchema)
-    .min(1, VALIDATION_MESSAGES.CHANGE_NO_DELTAS)
     .max(MAX_DELTAS_PER_CHANGE, VALIDATION_MESSAGES.CHANGE_TOO_MANY_DELTAS),
   metadata: z.object({
     version: z.string().default('1.0.0'),

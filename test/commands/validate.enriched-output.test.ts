@@ -19,11 +19,15 @@ describe('validate command enriched human output', () => {
   });
 
   it('prints Next steps footer and guidance on invalid change', async () => {
-    const changeContent = `# Test Change\n\n## Why\nThis is a sufficiently long explanation to pass the why length requirement for validation purposes.\n\n## What Changes\nThere are changes proposed, but no delta specs provided yet.`;
     const changeId = 'c-next-steps';
     const changePath = path.join(changesDir, changeId);
     await fs.mkdir(changePath, { recursive: true });
-    await fs.writeFile(path.join(changePath, 'proposal.md'), changeContent);
+
+    // Create a change with a specs dir that has an empty delta (no ### blocks)
+    const specsDir = path.join(changePath, 'specs', 'alpha');
+    await fs.mkdir(specsDir, { recursive: true });
+    const invalidDelta = `## ADDED Behavior\n\nNo blocks here, just text.\n`;
+    await fs.writeFile(path.join(specsDir, 'spec.md'), invalidDelta);
 
     const originalCwd = process.cwd();
     try {
@@ -39,11 +43,8 @@ describe('validate command enriched human output', () => {
       expect(code).not.toBe(0);
       expect(stderr).toContain('has issues');
       expect(stderr).toContain('Next steps:');
-      expect(stderr).toContain('openspec change show');
     } finally {
       process.chdir(originalCwd);
     }
   });
 });
-
-

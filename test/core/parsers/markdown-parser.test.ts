@@ -3,289 +3,292 @@ import { MarkdownParser } from '../../../src/core/parsers/markdown-parser.js';
 
 describe('MarkdownParser', () => {
   describe('parseSpec', () => {
-    it('should parse a valid spec', () => {
-      const content = `# User Authentication Spec
+    it('parses a spec with ## Behavior / ### Login / prose content', () => {
+      const content = `# My Spec
 
-## Purpose
-This specification defines the requirements for user authentication.
+## Behavior
 
-## Requirements
+### Login
 
-### The system SHALL provide secure user authentication
-Users need to be able to log in securely.
+Users authenticate with email and password. On success, a session token
+is issued and stored in an HTTP-only cookie.
 
-#### Scenario: Successful login
-Given a user with valid credentials
-When they submit the login form
-Then they are authenticated
+### Logout
 
-### The system SHALL handle invalid login attempts
-The system must handle incorrect credentials.
-
-#### Scenario: Invalid credentials
-Given a user with invalid credentials
-When they submit the login form
-Then they see an error message`;
+The session token is revoked and the cookie is cleared.`;
 
       const parser = new MarkdownParser(content);
-      const spec = parser.parseSpec('user-auth');
-      
-      expect(spec.name).toBe('user-auth');
-      expect(spec.overview).toContain('requirements for user authentication');
-      expect(spec.requirements).toHaveLength(2);
-      
-      const firstReq = spec.requirements[0];
-      expect(firstReq.text).toBe('Users need to be able to log in securely.');
-      expect(firstReq.scenarios).toHaveLength(1);
-      
-      const scenario = firstReq.scenarios[0];
-      expect(scenario.rawText).toContain('Given a user with valid credentials');
-      expect(scenario.rawText).toContain('When they submit the login form');
-      expect(scenario.rawText).toContain('Then they are authenticated');
+      const spec = parser.parseSpec('my-spec');
+
+      expect(spec.name).toBe('my-spec');
+      expect(spec.sections).toHaveProperty('Behavior');
+      expect(spec.sections['Behavior'].blocks).toHaveLength(2);
+      expect(spec.sections['Behavior'].blocks[0].name).toBe('Login');
+      expect(spec.sections['Behavior'].blocks[0].text).toContain('email and password');
+      expect(spec.sections['Behavior'].blocks[1].name).toBe('Logout');
+      expect(spec.sections['Behavior'].blocks[1].text).toContain('session token is revoked');
     });
 
-    it('should handle multi-line scenarios', () => {
-      const content = `# Test Spec
+    it('parses multiple ## sections each containing ### blocks', () => {
+      const content = `# Full Spec
 
-## Purpose
-Test overview
+## Behavior
 
-## Requirements
+### Login
+Users log in with credentials.
 
-### The system SHALL handle complex scenarios
-This requirement has content.
+### Registration
+New users create accounts.
 
-#### Scenario: Multi-line scenario
-Given a user with valid credentials
-  and the user has admin privileges
-  and the system is in maintenance mode
-When they attempt to login
-  and provide their MFA token
-Then they are authenticated
-  and redirected to admin dashboard
-  and see a maintenance warning`;
+## Data Model
+
+### Sessions
+Sessions track active user connections.
+
+### Users
+Users table stores profile information.`;
+
+      const parser = new MarkdownParser(content);
+      const spec = parser.parseSpec('full-spec');
+
+      expect(Object.keys(spec.sections)).toEqual(['Behavior', 'Data Model']);
+      expect(spec.sections['Behavior'].blocks).toHaveLength(2);
+      expect(spec.sections['Data Model'].blocks).toHaveLength(2);
+      expect(spec.sections['Data Model'].blocks[0].name).toBe('Sessions');
+    });
+
+    it('returns a structure with named sections and their blocks', () => {
+      const content = `# API Spec
+
+## Endpoints
+
+### GET /users
+Returns a list of users.
+
+### POST /users
+Creates a new user.
+
+## Error Handling
+
+### 404 Not Found
+Returned when resource does not exist.`;
+
+      const parser = new MarkdownParser(content);
+      const spec = parser.parseSpec('api-spec');
+
+      expect(spec.name).toBe('api-spec');
+      expect(spec.metadata).toEqual({ version: '1.0.0', format: 'openspec' });
+
+      // Verify section structure
+      const sectionNames = Object.keys(spec.sections);
+      expect(sectionNames).toContain('Endpoints');
+      expect(sectionNames).toContain('Error Handling');
+
+      // Verify blocks within sections
+      const endpoints = spec.sections['Endpoints'];
+      expect(endpoints.blocks).toHaveLength(2);
+      expect(endpoints.blocks[0]).toEqual({
+        name: 'GET /users',
+        text: 'Returns a list of users.',
+      });
+    });
+
+    it('handles ## sections without ### blocks', () => {
+      const content = `# Spec
+
+## Overview
+
+This spec describes the system.
+
+## Behavior
+
+### Auth
+Login flow.`;
 
       const parser = new MarkdownParser(content);
       const spec = parser.parseSpec('test');
-      
-      const scenario = spec.requirements[0].scenarios[0];
-      expect(scenario.rawText).toContain('Given a user with valid credentials');
-      expect(scenario.rawText).toContain('and the user has admin privileges');
-      expect(scenario.rawText).toContain('When they attempt to login');
-      expect(scenario.rawText).toContain('and provide their MFA token');
-      expect(scenario.rawText).toContain('Then they are authenticated');
-      expect(scenario.rawText).toContain('and see a maintenance warning');
+
+      expect(spec.sections['Overview'].blocks).toHaveLength(0);
+      expect(spec.sections['Behavior'].blocks).toHaveLength(1);
     });
 
-    it('should throw error for missing overview', () => {
-      const content = `# Test Spec
+    it('throws error when no ## sections exist', () => {
+      const content = `# Spec
 
-## Requirements
-
-### The system SHALL do something
-
-#### Scenario: Test
-Given test
-When action
-Then result`;
+Just some content without any sections.`;
 
       const parser = new MarkdownParser(content);
-      expect(() => parser.parseSpec('test')).toThrow('must have a Purpose section');
+      expect(() => parser.parseSpec('test')).toThrow('at least one ## section');
     });
 
-    it('should throw error for missing requirements', () => {
-      const content = `# Test Spec
+    it('uses heading text as block name even when block has no content', () => {
+      const content = `# Spec
 
-## Purpose
-This is a test spec`;
+## Rules
+
+### No empty blocks allowed
+
+### Content required`;
 
       const parser = new MarkdownParser(content);
-      expect(() => parser.parseSpec('test')).toThrow('must have a Requirements section');
+      const spec = parser.parseSpec('test');
+
+      expect(spec.sections['Rules'].blocks[0].name).toBe('No empty blocks allowed');
+      expect(spec.sections['Rules'].blocks[0].text).toBe('');
+      expect(spec.sections['Rules'].blocks[1].name).toBe('Content required');
+    });
+
+    it('extracts block text excluding child sections', () => {
+      const content = `# Spec
+
+## Behavior
+
+### Login
+
+Users authenticate with credentials.
+
+#### Implementation Notes
+These notes should not appear in block text.`;
+
+      const parser = new MarkdownParser(content);
+      const spec = parser.parseSpec('test');
+
+      expect(spec.sections['Behavior'].blocks[0].text).toBe('Users authenticate with credentials.');
+    });
+
+    it('handles CRLF line endings', () => {
+      const lines = [
+        '# Spec',
+        '',
+        '## Behavior',
+        '',
+        '### Login',
+        'Users log in.',
+      ];
+      const content = lines.join('\r\n');
+
+      const parser = new MarkdownParser(content);
+      const spec = parser.parseSpec('test');
+
+      expect(spec.sections['Behavior'].blocks[0].name).toBe('Login');
+      expect(spec.sections['Behavior'].blocks[0].text).toBe('Users log in.');
     });
   });
 
   describe('parseChange', () => {
-    it('should parse a valid change', () => {
-      const content = `# Add User Authentication
+    it('parses a change with all four proposal sections', () => {
+      const content = `# Add Authentication
 
-## Why
-We need to implement user authentication to secure the application and protect user data from unauthorized access.
+## Problem
+We need authentication to secure the application and protect user data from unauthorized access.
 
-## What Changes
-- **user-auth:** Add new user authentication specification
-- **api-endpoints:** Modify to include authentication endpoints
-- **database:** Remove old session management tables`;
+## Constraints
+Must integrate with existing OAuth providers. Cannot break current session management.
 
-      const parser = new MarkdownParser(content);
-      const change = parser.parseChange('add-user-auth');
-      
-      expect(change.name).toBe('add-user-auth');
-      expect(change.why).toContain('secure the application');
-      expect(change.whatChanges).toContain('user-auth');
-      expect(change.deltas).toHaveLength(3);
-      
-      expect(change.deltas[0].spec).toBe('user-auth');
-      expect(change.deltas[0].operation).toBe('ADDED');
-      expect(change.deltas[0].description).toContain('Add new user authentication');
-      
-      expect(change.deltas[1].spec).toBe('api-endpoints');
-      expect(change.deltas[1].operation).toBe('MODIFIED');
-      
-      expect(change.deltas[2].spec).toBe('database');
-      expect(change.deltas[2].operation).toBe('REMOVED');
-    });
+## Success Criteria
+Users can log in with email/password. Sessions are tracked securely. Invalid credentials show clear errors.
 
-    it('should throw error for missing why section', () => {
-      const content = `# Test Change
-
-## What Changes
-- **test:** Add test`;
+## Non-goals
+We are not implementing social login or SSO in this change.`;
 
       const parser = new MarkdownParser(content);
-      expect(() => parser.parseChange('test')).toThrow('must have a Why section');
-    });
+      const change = parser.parseChange('add-auth');
 
-    it('should throw error for missing what changes section', () => {
-      const content = `# Test Change
-
-## Why
-Because we need it`;
-
-      const parser = new MarkdownParser(content);
-      expect(() => parser.parseChange('test')).toThrow('must have a What Changes section');
-    });
-
-    it('should handle changes without deltas', () => {
-      const content = `# Test Change
-
-## Why
-We need to make some changes for important reasons that justify this work.
-
-## What Changes
-Some general description of changes without specific deltas`;
-
-      const parser = new MarkdownParser(content);
-      const change = parser.parseChange('test');
-      
+      expect(change.name).toBe('add-auth');
+      expect(change.problem).toContain('secure the application');
+      expect(change.constraints).toContain('OAuth providers');
+      expect(change.successCriteria).toContain('email/password');
+      expect(change.nonGoals).toContain('social login');
       expect(change.deltas).toHaveLength(0);
     });
 
-    it('parses change documents saved with CRLF line endings', () => {
-      const crlfContent = [
+    it('throws error for missing Problem section', () => {
+      const content = `# Change
+
+## Constraints
+Something
+
+## Success Criteria
+Something
+
+## Non-goals
+Something`;
+
+      const parser = new MarkdownParser(content);
+      expect(() => parser.parseChange('test')).toThrow('must have a Problem section');
+    });
+
+    it('throws error for missing Constraints section', () => {
+      const content = `# Change
+
+## Problem
+Something is broken.
+
+## Success Criteria
+Something
+
+## Non-goals
+Something`;
+
+      const parser = new MarkdownParser(content);
+      expect(() => parser.parseChange('test')).toThrow('must have a Constraints section');
+    });
+
+    it('throws error for missing Success Criteria section', () => {
+      const content = `# Change
+
+## Problem
+Something is broken.
+
+## Constraints
+Cannot break things.
+
+## Non-goals
+Not doing X.`;
+
+      const parser = new MarkdownParser(content);
+      expect(() => parser.parseChange('test')).toThrow('must have a Success Criteria section');
+    });
+
+    it('throws error for missing Non-goals section', () => {
+      const content = `# Change
+
+## Problem
+Something is broken.
+
+## Constraints
+Cannot break things.
+
+## Success Criteria
+Things work.`;
+
+      const parser = new MarkdownParser(content);
+      expect(() => parser.parseChange('test')).toThrow('must have a Non-goals section');
+    });
+
+    it('handles CRLF line endings', () => {
+      const lines = [
         '# CRLF Change',
         '',
-        '## Why',
-        'Reasons on Windows editors should parse like POSIX environments.',
+        '## Problem',
+        'Something is broken and needs to be fixed urgently.',
         '',
-        '## What Changes',
-        '- **alpha:** Add cross-platform parsing coverage',
-      ].join('\r\n');
+        '## Constraints',
+        'Must not break existing functionality.',
+        '',
+        '## Success Criteria',
+        'The thing works correctly after the fix.',
+        '',
+        '## Non-goals',
+        'Not doing extra work.',
+      ];
+      const content = lines.join('\r\n');
 
-      const parser = new MarkdownParser(crlfContent);
+      const parser = new MarkdownParser(content);
       const change = parser.parseChange('crlf-change');
 
-      expect(change.why).toContain('Windows editors should parse');
-      expect(change.deltas).toHaveLength(1);
-      expect(change.deltas[0].spec).toBe('alpha');
-    });
-  });
-
-  describe('section parsing', () => {
-    it('should handle nested sections correctly', () => {
-      const content = `# Test Spec
-
-## Purpose
-This is the overview section for testing nested sections.
-
-## Requirements
-
-### The system SHALL handle nested sections
-
-#### Scenario: Test nested
-Given a nested structure
-When parsing sections
-Then handle correctly
-
-### Another requirement SHALL work
-
-#### Scenario: Another test
-Given another test
-When running
-Then success`;
-
-      const parser = new MarkdownParser(content);
-      const spec = parser.parseSpec('test');
-      
-      // Should find the correct sections at different levels
-      expect(spec).toBeDefined();
-      expect(spec.overview).toContain('testing nested sections');
-      expect(spec.requirements).toHaveLength(2);
-    });
-
-    it('should preserve content between headers', () => {
-      const content = `# Test
-
-## Purpose
-This is the overview.
-It has multiple lines.
-
-Some more content here.
-
-## Requirements
-
-### Requirement 1
-Content for requirement 1`;
-
-      const parser = new MarkdownParser(content);
-      const spec = parser.parseSpec('test');
-      
-      expect(spec.overview).toContain('multiple lines');
-      expect(spec.overview).toContain('more content');
-    });
-
-    it('should use requirement heading as fallback when no content is provided', () => {
-      const content = `# Test Spec
-
-## Purpose
-Test overview
-
-## Requirements
-
-### The system SHALL use heading text when no content
-
-#### Scenario: Test
-Given test
-When action
-Then result`;
-
-      const parser = new MarkdownParser(content);
-      const spec = parser.parseSpec('test');
-      
-      expect(spec.requirements[0].text).toBe('The system SHALL use heading text when no content');
-    });
-
-    it('should extract requirement text from first non-empty content line', () => {
-      const content = `# Test Spec
-
-## Purpose
-Test overview
-
-## Requirements
-
-### Requirement heading
-
-This is the actual requirement text.
-This is additional description.
-
-#### Scenario: Test
-Given test
-When action
-Then result`;
-
-      const parser = new MarkdownParser(content);
-      const spec = parser.parseSpec('test');
-      
-      expect(spec.requirements[0].text).toBe('This is the actual requirement text.');
+      expect(change.problem).toContain('broken');
+      expect(change.constraints).toContain('existing functionality');
     });
   });
 });

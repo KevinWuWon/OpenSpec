@@ -15,7 +15,7 @@ describe('ChangeCommand.list', () => {
     tempRoot = path.join(os.tmpdir(), `openspec-change-command-list-${Date.now()}`);
     const changeDir = path.join(tempRoot, 'openspec', 'changes', 'demo');
     await fs.mkdir(changeDir, { recursive: true });
-    const proposal = `# Change: Demo\n\n## Why\nTest list.\n\n## What Changes\n- **auth:** Add requirement`;
+    const proposal = `# Change: Demo\n\n## Problem\nTest list requires a valid fixture for listing changes correctly.\n\n## Constraints\nMust not break listing.\n\n## Success Criteria\nList command returns expected shape and content for all output formats.\n\n## Non-goals\nNot testing delta parsing.`;
     await fs.writeFile(path.join(changeDir, 'proposal.md'), proposal, 'utf-8');
     await fs.writeFile(path.join(changeDir, 'tasks.md'), '- [x] Task 1\n- [ ] Task 2\n', 'utf-8');
     process.chdir(tempRoot);

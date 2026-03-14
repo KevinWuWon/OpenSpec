@@ -9,11 +9,12 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import chalk from 'chalk';
 import {
-  extractRequirementsSection,
+  extractSection,
   parseDeltaSpec,
-  normalizeRequirementName,
-  type RequirementBlock,
-} from './parsers/requirement-blocks.js';
+  normalizeBlockName,
+  type Block,
+  type SectionDeltaPlan,
+} from './parsers/block-parser.js';
 import { Validator } from './validation/validator.js';
 
 // -----------------------------------------------------------------------------
@@ -108,94 +109,31 @@ export async function buildUpdatedSpec(
   // Parse deltas from the change spec file
   const plan = parseDeltaSpec(changeContent);
   const specName = path.basename(path.dirname(update.target));
+  const sectionPlans = Object.values(plan.sections);
 
-  // Pre-validate duplicates within sections
-  const addedNames = new Set<string>();
-  for (const add of plan.added) {
-    const name = normalizeRequirementName(add.name);
-    if (addedNames.has(name)) {
-      throw new Error(
-        `${specName} validation failed - duplicate requirement in ADDED for header "### Requirement: ${add.name}"`
-      );
-    }
-    addedNames.add(name);
-  }
-  const modifiedNames = new Set<string>();
-  for (const mod of plan.modified) {
-    const name = normalizeRequirementName(mod.name);
-    if (modifiedNames.has(name)) {
-      throw new Error(
-        `${specName} validation failed - duplicate requirement in MODIFIED for header "### Requirement: ${mod.name}"`
-      );
-    }
-    modifiedNames.add(name);
-  }
-  const removedNamesSet = new Set<string>();
-  for (const rem of plan.removed) {
-    const name = normalizeRequirementName(rem);
-    if (removedNamesSet.has(name)) {
-      throw new Error(
-        `${specName} validation failed - duplicate requirement in REMOVED for header "### Requirement: ${rem}"`
-      );
-    }
-    removedNamesSet.add(name);
-  }
-  const renamedFromSet = new Set<string>();
-  const renamedToSet = new Set<string>();
-  for (const { from, to } of plan.renamed) {
-    const fromNorm = normalizeRequirementName(from);
-    const toNorm = normalizeRequirementName(to);
-    if (renamedFromSet.has(fromNorm)) {
-      throw new Error(
-        `${specName} validation failed - duplicate FROM in RENAMED for header "### Requirement: ${from}"`
-      );
-    }
-    if (renamedToSet.has(toNorm)) {
-      throw new Error(
-        `${specName} validation failed - duplicate TO in RENAMED for header "### Requirement: ${to}"`
-      );
-    }
-    renamedFromSet.add(fromNorm);
-    renamedToSet.add(toNorm);
+  // Pre-validate duplicates and cross-operation conflicts within each target section
+  for (const sp of sectionPlans) {
+    validateSectionDeltaPlan(specName, sp);
   }
 
-  // Pre-validate cross-section conflicts
-  const conflicts: Array<{ name: string; a: string; b: string }> = [];
-  for (const n of modifiedNames) {
-    if (removedNamesSet.has(n)) conflicts.push({ name: n, a: 'MODIFIED', b: 'REMOVED' });
-    if (addedNames.has(n)) conflicts.push({ name: n, a: 'MODIFIED', b: 'ADDED' });
-  }
-  for (const n of addedNames) {
-    if (removedNamesSet.has(n)) conflicts.push({ name: n, a: 'ADDED', b: 'REMOVED' });
-  }
-  // Renamed interplay: MODIFIED must reference the NEW header, not FROM
-  for (const { from, to } of plan.renamed) {
-    const fromNorm = normalizeRequirementName(from);
-    const toNorm = normalizeRequirementName(to);
-    if (modifiedNames.has(fromNorm)) {
-      throw new Error(
-        `${specName} validation failed - when a rename exists, MODIFIED must reference the NEW header "### Requirement: ${to}"`
-      );
-    }
-    // Detect ADDED colliding with a RENAMED TO
-    if (addedNames.has(toNorm)) {
-      throw new Error(
-        `${specName} validation failed - RENAMED TO header collides with ADDED for "### Requirement: ${to}"`
-      );
-    }
-  }
-  if (conflicts.length > 0) {
-    const c = conflicts[0];
-    throw new Error(
-      `${specName} validation failed - requirement present in multiple sections (${c.a} and ${c.b}) for header "### Requirement: ${c.name}"`
-    );
-  }
-  const hasAnyDelta = plan.added.length + plan.modified.length + plan.removed.length + plan.renamed.length > 0;
+  // Check that there are any deltas at all
+  const hasAnyDelta = sectionPlans.some(
+    sp => sp.added.length + sp.modified.length + sp.removed.length + sp.renamed.length > 0
+  );
   if (!hasAnyDelta) {
     throw new Error(
       `Delta parsing found no operations for ${path.basename(path.dirname(update.source))}. ` +
         `Provide ADDED/MODIFIED/REMOVED/RENAMED sections in change spec.`
     );
+  }
+
+  // Compute totals across all sections
+  const counts = { added: 0, modified: 0, removed: 0, renamed: 0 };
+  for (const sp of sectionPlans) {
+    counts.added += sp.added.length;
+    counts.modified += sp.modified.length;
+    counts.removed += sp.removed.length;
+    counts.renamed += sp.renamed.length;
   }
 
   // Load or create base target content
@@ -204,136 +142,31 @@ export async function buildUpdatedSpec(
   try {
     targetContent = await fs.readFile(update.target, 'utf-8');
   } catch {
-    // Target spec does not exist; MODIFIED and RENAMED are not allowed for new specs
-    // REMOVED will be ignored with a warning since there's nothing to remove
-    if (plan.modified.length > 0 || plan.renamed.length > 0) {
+    // Target spec does not exist; only ADDED operations are allowed for new specs
+    const hasNonAdded = sectionPlans.some(
+      sp => sp.modified.length > 0 || sp.removed.length > 0 || sp.renamed.length > 0
+    );
+    if (hasNonAdded) {
       throw new Error(
-        `${specName}: target spec does not exist; only ADDED requirements are allowed for new specs. MODIFIED and RENAMED operations require an existing spec.`
-      );
-    }
-    // Warn about REMOVED requirements being ignored for new specs
-    if (plan.removed.length > 0) {
-      console.log(
-        chalk.yellow(
-          `⚠️  Warning: ${specName} - ${plan.removed.length} REMOVED requirement(s) ignored for new spec (nothing to remove).`
-        )
+        `${specName}: target spec does not exist; only ADDED blocks are allowed for new specs. MODIFIED, REMOVED, and RENAMED operations require an existing spec.`
       );
     }
     isNewSpec = true;
-    targetContent = buildSpecSkeleton(specName, changeName);
+    // Seed skeleton with only ADDED section targets, in first-appearance order
+    const addedSectionNames = Object.keys(plan.sections);
+    targetContent = buildSpecSkeleton(specName, changeName, addedSectionNames);
   }
 
-  // Extract requirements section and build name->block map
-  const parts = extractRequirementsSection(targetContent);
-  const nameToBlock = new Map<string, RequirementBlock>();
-  for (const block of parts.bodyBlocks) {
-    nameToBlock.set(normalizeRequirementName(block.name), block);
+  // Apply deltas per target section
+  let rebuilt = targetContent;
+  for (const sp of sectionPlans) {
+    rebuilt = applySectionDelta(rebuilt, sp, specName, isNewSpec);
   }
 
-  // Apply operations in order: RENAMED → REMOVED → MODIFIED → ADDED
-  // RENAMED
-  for (const r of plan.renamed) {
-    const from = normalizeRequirementName(r.from);
-    const to = normalizeRequirementName(r.to);
-    if (!nameToBlock.has(from)) {
-      throw new Error(`${specName} RENAMED failed for header "### Requirement: ${r.from}" - source not found`);
-    }
-    if (nameToBlock.has(to)) {
-      throw new Error(`${specName} RENAMED failed for header "### Requirement: ${r.to}" - target already exists`);
-    }
-    const block = nameToBlock.get(from)!;
-    const newHeader = `### Requirement: ${to}`;
-    const rawLines = block.raw.split('\n');
-    rawLines[0] = newHeader;
-    const renamedBlock: RequirementBlock = {
-      headerLine: newHeader,
-      name: to,
-      raw: rawLines.join('\n'),
-    };
-    nameToBlock.delete(from);
-    nameToBlock.set(to, renamedBlock);
-  }
+  // Clean up excessive newlines
+  rebuilt = rebuilt.replace(/\n{3,}/g, '\n\n');
 
-  // REMOVED
-  for (const name of plan.removed) {
-    const key = normalizeRequirementName(name);
-    if (!nameToBlock.has(key)) {
-      // For new specs, REMOVED requirements are already warned about and ignored
-      // For existing specs, missing requirements are an error
-      if (!isNewSpec) {
-        throw new Error(`${specName} REMOVED failed for header "### Requirement: ${name}" - not found`);
-      }
-      // Skip removal for new specs (already warned above)
-      continue;
-    }
-    nameToBlock.delete(key);
-  }
-
-  // MODIFIED
-  for (const mod of plan.modified) {
-    const key = normalizeRequirementName(mod.name);
-    if (!nameToBlock.has(key)) {
-      throw new Error(`${specName} MODIFIED failed for header "### Requirement: ${mod.name}" - not found`);
-    }
-    // Replace block with provided raw (ensure header line matches key)
-    const modHeaderMatch = mod.raw.split('\n')[0].match(/^###\s*Requirement:\s*(.+)\s*$/);
-    if (!modHeaderMatch || normalizeRequirementName(modHeaderMatch[1]) !== key) {
-      throw new Error(
-        `${specName} MODIFIED failed for header "### Requirement: ${mod.name}" - header mismatch in content`
-      );
-    }
-    nameToBlock.set(key, mod);
-  }
-
-  // ADDED
-  for (const add of plan.added) {
-    const key = normalizeRequirementName(add.name);
-    if (nameToBlock.has(key)) {
-      throw new Error(`${specName} ADDED failed for header "### Requirement: ${add.name}" - already exists`);
-    }
-    nameToBlock.set(key, add);
-  }
-
-  // Duplicates within resulting map are implicitly prevented by key uniqueness.
-
-  // Recompose requirements section preserving original ordering where possible
-  const keptOrder: RequirementBlock[] = [];
-  const seen = new Set<string>();
-  for (const block of parts.bodyBlocks) {
-    const key = normalizeRequirementName(block.name);
-    const replacement = nameToBlock.get(key);
-    if (replacement) {
-      keptOrder.push(replacement);
-      seen.add(key);
-    }
-  }
-  // Append any newly added that were not in original order
-  for (const [key, block] of nameToBlock.entries()) {
-    if (!seen.has(key)) {
-      keptOrder.push(block);
-    }
-  }
-
-  const reqBody = [parts.preamble && parts.preamble.trim() ? parts.preamble.trimEnd() : '']
-    .filter(Boolean)
-    .concat(keptOrder.map((b) => b.raw))
-    .join('\n\n')
-    .trimEnd();
-
-  const rebuilt = [parts.before.trimEnd(), parts.headerLine, reqBody, parts.after]
-    .filter((s, idx) => !(idx === 0 && s === ''))
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n');
-
-  return {
-    rebuilt,
-    counts: {
-      added: plan.added.length,
-      modified: plan.modified.length,
-      removed: plan.removed.length,
-      renamed: plan.renamed.length,
-    },
-  };
+  return { rebuilt, counts };
 }
 
 /**
@@ -359,10 +192,14 @@ export async function writeUpdatedSpec(
 
 /**
  * Build a skeleton spec for new capabilities.
+ * Seeds only the given section names (from ADDED targets) instead of hardcoding ## Requirements.
  */
-export function buildSpecSkeleton(specFolderName: string, changeName: string): string {
-  const titleBase = specFolderName;
-  return `# ${titleBase} Specification\n\n## Purpose\nTBD - created by archiving change ${changeName}. Update Purpose after archive.\n\n## Requirements\n`;
+export function buildSpecSkeleton(specFolderName: string, changeName: string, sectionNames: string[] = []): string {
+  let content = `# ${specFolderName} Specification\n\n## Purpose\nTBD - created by archiving change ${changeName}. Update Purpose after archive.\n`;
+  for (const name of sectionNames) {
+    content += `\n## ${name}\n`;
+  }
+  return content;
 }
 
 /**
@@ -480,4 +317,207 @@ export async function applySpecs(
     totals,
     noChanges: false,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Section-level validation and apply helpers
+// ---------------------------------------------------------------------------
+
+function sectionExistsInContent(content: string, sectionName: string): boolean {
+  const normalized = content.replace(/\r\n?/g, '\n');
+  const target = sectionName.trim().toLowerCase();
+  return normalized.split('\n').some(line => {
+    const m = line.match(/^##\s+(.+?)\s*$/);
+    return m !== null && m[1].trim().toLowerCase() === target;
+  });
+}
+
+function validateSectionDeltaPlan(specName: string, sp: SectionDeltaPlan): void {
+  const addedNames = new Set<string>();
+  for (const add of sp.added) {
+    const name = normalizeBlockName(add.name);
+    if (addedNames.has(name)) {
+      throw new Error(
+        `${specName} validation failed - duplicate block in ADDED for header "### ${add.name}"`
+      );
+    }
+    addedNames.add(name);
+  }
+  const modifiedNames = new Set<string>();
+  for (const mod of sp.modified) {
+    const name = normalizeBlockName(mod.name);
+    if (modifiedNames.has(name)) {
+      throw new Error(
+        `${specName} validation failed - duplicate block in MODIFIED for header "### ${mod.name}"`
+      );
+    }
+    modifiedNames.add(name);
+  }
+  const removedNamesSet = new Set<string>();
+  for (const rem of sp.removed) {
+    const name = normalizeBlockName(rem);
+    if (removedNamesSet.has(name)) {
+      throw new Error(
+        `${specName} validation failed - duplicate block in REMOVED for header "### ${rem}"`
+      );
+    }
+    removedNamesSet.add(name);
+  }
+  const renamedFromSet = new Set<string>();
+  const renamedToSet = new Set<string>();
+  for (const { from, to } of sp.renamed) {
+    const fromNorm = normalizeBlockName(from);
+    const toNorm = normalizeBlockName(to);
+    if (renamedFromSet.has(fromNorm)) {
+      throw new Error(
+        `${specName} validation failed - duplicate FROM in RENAMED for header "### ${from}"`
+      );
+    }
+    if (renamedToSet.has(toNorm)) {
+      throw new Error(
+        `${specName} validation failed - duplicate TO in RENAMED for header "### ${to}"`
+      );
+    }
+    renamedFromSet.add(fromNorm);
+    renamedToSet.add(toNorm);
+  }
+
+  // Cross-operation conflicts within this target section
+  const conflicts: Array<{ name: string; a: string; b: string }> = [];
+  for (const n of modifiedNames) {
+    if (removedNamesSet.has(n)) conflicts.push({ name: n, a: 'MODIFIED', b: 'REMOVED' });
+    if (addedNames.has(n)) conflicts.push({ name: n, a: 'MODIFIED', b: 'ADDED' });
+  }
+  for (const n of addedNames) {
+    if (removedNamesSet.has(n)) conflicts.push({ name: n, a: 'ADDED', b: 'REMOVED' });
+  }
+  for (const { from, to } of sp.renamed) {
+    const fromNorm = normalizeBlockName(from);
+    const toNorm = normalizeBlockName(to);
+    if (modifiedNames.has(fromNorm)) {
+      throw new Error(
+        `${specName} validation failed - when a rename exists, MODIFIED must reference the NEW header "### ${to}"`
+      );
+    }
+    if (addedNames.has(toNorm)) {
+      throw new Error(
+        `${specName} validation failed - RENAMED TO header collides with ADDED for "### ${to}"`
+      );
+    }
+  }
+  if (conflicts.length > 0) {
+    const c = conflicts[0];
+    throw new Error(
+      `${specName} validation failed - block present in multiple sections (${c.a} and ${c.b}) for header "### ${c.name}"`
+    );
+  }
+}
+
+function applySectionDelta(
+  content: string,
+  sp: SectionDeltaPlan,
+  specName: string,
+  isNewSpec: boolean
+): string {
+  // Check if section exists in content before extracting
+  const sectionFound = sectionExistsInContent(content, sp.targetSection);
+  if (!sectionFound) {
+    const hasNonAdded = sp.modified.length > 0 || sp.removed.length > 0 || sp.renamed.length > 0;
+    if (hasNonAdded) {
+      throw new Error(
+        `${specName}: section "## ${sp.targetSection}" not found; MODIFIED, REMOVED, and RENAMED require an existing section. Only ADDED can create new sections.`
+      );
+    }
+  }
+
+  const parts = extractSection(content, sp.targetSection);
+  const nameToBlock = new Map<string, Block>();
+  for (const block of parts.bodyBlocks) {
+    nameToBlock.set(normalizeBlockName(block.name), block);
+  }
+
+  // Apply operations in order: RENAMED → REMOVED → MODIFIED → ADDED
+  for (const r of sp.renamed) {
+    const from = normalizeBlockName(r.from);
+    const to = normalizeBlockName(r.to);
+    if (!nameToBlock.has(from)) {
+      throw new Error(`${specName} RENAMED failed for header "### ${r.from}" - source not found`);
+    }
+    if (nameToBlock.has(to)) {
+      throw new Error(`${specName} RENAMED failed for header "### ${r.to}" - target already exists`);
+    }
+    const block = nameToBlock.get(from)!;
+    const newHeader = `### ${to}`;
+    const rawLines = block.raw.split('\n');
+    rawLines[0] = newHeader;
+    const renamedBlock: Block = {
+      headerLine: newHeader,
+      name: to,
+      raw: rawLines.join('\n'),
+    };
+    nameToBlock.delete(from);
+    nameToBlock.set(to, renamedBlock);
+  }
+
+  for (const name of sp.removed) {
+    const key = normalizeBlockName(name);
+    if (!nameToBlock.has(key)) {
+      if (!isNewSpec) {
+        throw new Error(`${specName} REMOVED failed for header "### ${name}" - not found`);
+      }
+      continue;
+    }
+    nameToBlock.delete(key);
+  }
+
+  for (const mod of sp.modified) {
+    const key = normalizeBlockName(mod.name);
+    if (!nameToBlock.has(key)) {
+      throw new Error(`${specName} MODIFIED failed for header "### ${mod.name}" - not found`);
+    }
+    const modHeaderMatch = mod.raw.split('\n')[0].match(/^###\s+(.+)\s*$/);
+    if (!modHeaderMatch || normalizeBlockName(modHeaderMatch[1]) !== key) {
+      throw new Error(
+        `${specName} MODIFIED failed for header "### ${mod.name}" - header mismatch in content`
+      );
+    }
+    nameToBlock.set(key, mod);
+  }
+
+  for (const add of sp.added) {
+    const key = normalizeBlockName(add.name);
+    if (nameToBlock.has(key)) {
+      throw new Error(`${specName} ADDED failed for header "### ${add.name}" - already exists`);
+    }
+    nameToBlock.set(key, add);
+  }
+
+  // Recompose section preserving original ordering where possible
+  const keptOrder: Block[] = [];
+  const seen = new Set<string>();
+  for (const block of parts.bodyBlocks) {
+    const key = normalizeBlockName(block.name);
+    const replacement = nameToBlock.get(key);
+    if (replacement) {
+      keptOrder.push(replacement);
+      seen.add(key);
+    }
+  }
+  for (const [key, block] of nameToBlock.entries()) {
+    if (!seen.has(key)) {
+      keptOrder.push(block);
+    }
+  }
+
+  const reqBody = [parts.preamble && parts.preamble.trim() ? parts.preamble.trimEnd() : '']
+    .filter(Boolean)
+    .concat(keptOrder.map((b) => b.raw))
+    .join('\n\n')
+    .trimEnd();
+
+  const rebuilt = [parts.before.trimEnd(), parts.headerLine, reqBody, parts.after]
+    .filter((s, idx) => !(idx === 0 && s === ''))
+    .join('\n');
+
+  return rebuilt;
 }

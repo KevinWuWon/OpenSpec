@@ -46,7 +46,7 @@ export function getVerifyChangeSkillTemplate(): SkillTemplate {
 
    Create a report structure with three dimensions:
    - **Completeness**: Track tasks and spec coverage
-   - **Correctness**: Track requirement implementation and scenario coverage
+   - **Correctness**: Track block implementation and behavior coverage
    - **Coherence**: Track design adherence and pattern consistency
 
    Each dimension can have CRITICAL, WARNING, or SUGGESTION issues.
@@ -55,7 +55,7 @@ export function getVerifyChangeSkillTemplate(): SkillTemplate {
 
    **Task Completion**:
    - If tasks.md exists in contextFiles, read it
-   - Parse checkboxes: \`- [ ]\` (incomplete) vs \`- [x]\` (complete)
+   - Parse \`### Task N:\` headings — tasks with \`— done\` suffix are complete, others are incomplete
    - Count complete vs total tasks
    - If incomplete tasks exist:
      - Add CRITICAL issue for each incomplete task
@@ -63,32 +63,32 @@ export function getVerifyChangeSkillTemplate(): SkillTemplate {
 
    **Spec Coverage**:
    - If delta specs exist in \`openspec/changes/<name>/specs/\`:
-     - Extract all requirements (marked with "### Requirement:")
-     - For each requirement:
-       - Search codebase for keywords related to the requirement
+     - Extract all blocks (marked with \`### Name\` headings under \`##\` sections)
+     - For each block:
+       - Search codebase for keywords related to the block
        - Assess if implementation likely exists
-     - If requirements appear unimplemented:
-       - Add CRITICAL issue: "Requirement not found: <requirement name>"
-       - Recommendation: "Implement requirement X: <description>"
+     - If blocks appear unimplemented:
+       - Add CRITICAL issue: "Block not found: <block name>"
+       - Recommendation: "Implement block X: <description>"
 
 6. **Verify Correctness**
 
-   **Requirement Implementation Mapping**:
-   - For each requirement from delta specs:
+   **Block Implementation Mapping**:
+   - For each block from delta specs:
      - Search codebase for implementation evidence
      - If found, note file paths and line ranges
-     - Assess if implementation matches requirement intent
+     - Assess if implementation matches the block's prose description
      - If divergence detected:
        - Add WARNING: "Implementation may diverge from spec: <details>"
-       - Recommendation: "Review <file>:<lines> against requirement X"
+       - Recommendation: "Review <file>:<lines> against block X"
 
-   **Scenario Coverage**:
-   - For each scenario in delta specs (marked with "#### Scenario:"):
-     - Check if conditions are handled in code
-     - Check if tests exist covering the scenario
-     - If scenario appears uncovered:
-       - Add WARNING: "Scenario not covered: <scenario name>"
-       - Recommendation: "Add test or implementation for scenario: <description>"
+   **Behavior Coverage**:
+   - For each block in delta specs:
+     - Check if described behaviors are handled in code
+     - Check if tests exist covering the expected behavior
+     - If behavior appears uncovered:
+       - Add WARNING: "Behavior not covered: <block name>"
+       - Recommendation: "Add test or implementation for: <description>"
 
 7. **Verify Coherence**
 
@@ -126,12 +126,12 @@ export function getVerifyChangeSkillTemplate(): SkillTemplate {
 
    1. **CRITICAL** (Must fix before archive):
       - Incomplete tasks
-      - Missing requirement implementations
+      - Missing block implementations
       - Each with specific, actionable recommendation
 
    2. **WARNING** (Should fix):
       - Spec/design divergences
-      - Missing scenario coverage
+      - Missing behavior coverage
       - Each with specific recommendation
 
    3. **SUGGESTION** (Nice to fix):
@@ -146,7 +146,7 @@ export function getVerifyChangeSkillTemplate(): SkillTemplate {
 
 **Verification Heuristics**
 
-- **Completeness**: Focus on objective checklist items (checkboxes, requirements list)
+- **Completeness**: Focus on objective checklist items (task headings, spec blocks)
 - **Correctness**: Use keyword search, file path analysis, reasonable inference - don't require perfect certainty
 - **Coherence**: Look for glaring inconsistencies, don't nitpick style
 - **False Positives**: When uncertain, prefer SUGGESTION over WARNING, WARNING over CRITICAL
@@ -215,7 +215,7 @@ export function getOpsxVerifyCommandTemplate(): CommandTemplate {
 
    Create a report structure with three dimensions:
    - **Completeness**: Track tasks and spec coverage
-   - **Correctness**: Track requirement implementation and scenario coverage
+   - **Correctness**: Track block implementation and behavior coverage
    - **Coherence**: Track design adherence and pattern consistency
 
    Each dimension can have CRITICAL, WARNING, or SUGGESTION issues.
@@ -224,7 +224,7 @@ export function getOpsxVerifyCommandTemplate(): CommandTemplate {
 
    **Task Completion**:
    - If tasks.md exists in contextFiles, read it
-   - Parse checkboxes: \`- [ ]\` (incomplete) vs \`- [x]\` (complete)
+   - Parse \`### Task N:\` headings — tasks with \`— done\` suffix are complete, others are incomplete
    - Count complete vs total tasks
    - If incomplete tasks exist:
      - Add CRITICAL issue for each incomplete task
@@ -232,32 +232,32 @@ export function getOpsxVerifyCommandTemplate(): CommandTemplate {
 
    **Spec Coverage**:
    - If delta specs exist in \`openspec/changes/<name>/specs/\`:
-     - Extract all requirements (marked with "### Requirement:")
-     - For each requirement:
-       - Search codebase for keywords related to the requirement
+     - Extract all blocks (marked with \`### Name\` headings under \`##\` sections)
+     - For each block:
+       - Search codebase for keywords related to the block
        - Assess if implementation likely exists
-     - If requirements appear unimplemented:
-       - Add CRITICAL issue: "Requirement not found: <requirement name>"
-       - Recommendation: "Implement requirement X: <description>"
+     - If blocks appear unimplemented:
+       - Add CRITICAL issue: "Block not found: <block name>"
+       - Recommendation: "Implement block X: <description>"
 
 6. **Verify Correctness**
 
-   **Requirement Implementation Mapping**:
-   - For each requirement from delta specs:
+   **Block Implementation Mapping**:
+   - For each block from delta specs:
      - Search codebase for implementation evidence
      - If found, note file paths and line ranges
-     - Assess if implementation matches requirement intent
+     - Assess if implementation matches the block's prose description
      - If divergence detected:
        - Add WARNING: "Implementation may diverge from spec: <details>"
-       - Recommendation: "Review <file>:<lines> against requirement X"
+       - Recommendation: "Review <file>:<lines> against block X"
 
-   **Scenario Coverage**:
-   - For each scenario in delta specs (marked with "#### Scenario:"):
-     - Check if conditions are handled in code
-     - Check if tests exist covering the scenario
-     - If scenario appears uncovered:
-       - Add WARNING: "Scenario not covered: <scenario name>"
-       - Recommendation: "Add test or implementation for scenario: <description>"
+   **Behavior Coverage**:
+   - For each block in delta specs:
+     - Check if described behaviors are handled in code
+     - Check if tests exist covering the expected behavior
+     - If behavior appears uncovered:
+       - Add WARNING: "Behavior not covered: <block name>"
+       - Recommendation: "Add test or implementation for: <description>"
 
 7. **Verify Coherence**
 
@@ -295,12 +295,12 @@ export function getOpsxVerifyCommandTemplate(): CommandTemplate {
 
    1. **CRITICAL** (Must fix before archive):
       - Incomplete tasks
-      - Missing requirement implementations
+      - Missing block implementations
       - Each with specific, actionable recommendation
 
    2. **WARNING** (Should fix):
       - Spec/design divergences
-      - Missing scenario coverage
+      - Missing behavior coverage
       - Each with specific recommendation
 
    3. **SUGGESTION** (Nice to fix):
@@ -315,7 +315,7 @@ export function getOpsxVerifyCommandTemplate(): CommandTemplate {
 
 **Verification Heuristics**
 
-- **Completeness**: Focus on objective checklist items (checkboxes, requirements list)
+- **Completeness**: Focus on objective checklist items (task headings, spec blocks)
 - **Correctness**: Use keyword search, file path analysis, reasonable inference - don't require perfect certainty
 - **Coherence**: Look for glaring inconsistencies, don't nitpick style
 - **False Positives**: When uncertain, prefer SUGGESTION over WARNING, WARNING over CRITICAL

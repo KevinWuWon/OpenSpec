@@ -14,28 +14,8 @@ describe('Validator enriched messages', () => {
     await fs.rm(testDir, { recursive: true, force: true });
   });
 
-  it('adds guidance for no deltas in change', async () => {
-    const changeContent = `# Test Change
-
-## Why
-This is a sufficiently long explanation to pass the why length requirement for validation purposes.
-
-## What Changes
-There are changes proposed, but no delta specs provided yet.`;
-    const changePath = path.join(testDir, 'proposal.md');
-    await fs.writeFile(changePath, changeContent);
-
-    const validator = new Validator();
-    const report = await validator.validateChange(changePath);
-    expect(report.valid).toBe(false);
-    const msg = report.issues.map(i => i.message).join('\n');
-    expect(msg).toContain('Change must have at least one delta');
-    expect(msg).toContain('Ensure your change has a specs/ directory');
-    expect(msg).toContain('## ADDED/MODIFIED/REMOVED/RENAMED Requirements');
-  });
-
-  it('adds guidance when spec missing Purpose/Requirements', async () => {
-    const specContent = `# Test Spec\n\n## Requirements\n\n### Requirement: Foo\nFoo SHALL ...\n\n#### Scenario: Bar\nWhen...`;
+  it('adds guidance when spec has no ## sections', async () => {
+    const specContent = `# Test Spec\n\nJust content with no sections.\n`;
     const specPath = path.join(testDir, 'spec.md');
     await fs.writeFile(specPath, specContent);
 
@@ -43,32 +23,49 @@ There are changes proposed, but no delta specs provided yet.`;
     const report = await validator.validateSpec(specPath);
     expect(report.valid).toBe(false);
     const msg = report.issues.map(i => i.message).join('\n');
-    expect(msg).toContain('Spec must have a Purpose section');
-    expect(msg).toContain('Expected headers: "## Purpose" and "## Requirements"');
+    expect(msg).toContain('Spec must have at least one ## section');
+    expect(msg).toContain('A spec must have at least one ## section containing ### blocks with content');
   });
 
-  it('warns with scenario conversion template when missing scenarios', async () => {
+  it('validates spec with prose blocks (no SHALL/MUST, no scenarios)', async () => {
     const specContent = `# Test Spec
 
-## Purpose
-This is a sufficiently long purpose section to avoid warnings about brevity.
+## Behavior
 
-## Requirements
-
-### Requirement: Foo SHALL be described
-Text of requirement
+### Foo
+Description of the foo behavior in plain prose.
 `;
     const specPath = path.join(testDir, 'spec.md');
     await fs.writeFile(specPath, specContent);
 
     const validator = new Validator();
     const report = await validator.validateSpec(specPath);
+    // Spec with prose block (no SHALL/MUST, no scenarios) should pass
+    expect(report.valid).toBe(true);
+    expect(report.summary.errors).toBe(0);
+  });
+
+  it('detects legacy markers in delta specs', async () => {
+    const changeDir = path.join(testDir, 'test-change');
+    const specsDir = path.join(changeDir, 'specs', 'test-spec');
+    await fs.mkdir(specsDir, { recursive: true });
+
+    const deltaSpec = `## ADDED Behavior
+
+### Requirement: Legacy Format
+The system SHALL do something.
+
+#### Scenario: Legacy scenario
+Given a condition
+When an action
+Then a result`;
+
+    await fs.writeFile(path.join(specsDir, 'spec.md'), deltaSpec);
+
+    const validator = new Validator();
+    const report = await validator.validateChangeDeltaSpecs(changeDir);
     expect(report.valid).toBe(false);
-    const warn = report.issues.find(i => i.path.includes('requirements[0].scenarios'));
-    expect(warn?.message).toContain('Requirement must have at least one scenario');
-    expect(warn?.message).toContain('Scenarios must use level-4 headers');
-    expect(warn?.message).toContain('#### Scenario:');
+    const msg = report.issues.map(i => i.message).join('\n');
+    expect(msg).toContain('Legacy marker detected');
   });
 });
-
-

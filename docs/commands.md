@@ -49,7 +49,7 @@ Create a new change and generate planning artifacts in one step. This is the def
 
 **What it does:**
 - Creates `openspec/changes/<change-name>/`
-- Generates artifacts needed before implementation (for `spec-driven`: proposal, specs, design, tasks)
+- Generates artifacts needed before implementation (for `spec-driven`: proposal, design, tasks, specs)
 - Stops when the change is ready for `/opsx:apply`
 
 **Example:**
@@ -58,9 +58,9 @@ You: /opsx:propose add-dark-mode
 
 AI:  Created openspec/changes/add-dark-mode/
      ✓ proposal.md
-     ✓ specs/ui/spec.md
      ✓ design.md
      ✓ tasks.md
+     ✓ specs/ui/spec.md
      Ready for implementation. Run /opsx:apply.
 ```
 
@@ -200,15 +200,15 @@ AI:  Change: add-dark-mode
 
      Artifact status:
      ✓ proposal    (done)
-     ◆ specs       (ready)
      ◆ design      (ready)
-     ○ tasks       (blocked - needs: specs)
+     ○ tasks       (blocked - needs: design)
+     ○ specs       (blocked - needs: tasks)
 
-     Creating specs...
+     Creating design...
 
-     [Reads proposal.md, creates specs based on requirements]
+     [Reads proposal.md, creates design based on approach]
 
-     ✓ Created openspec/changes/add-dark-mode/specs/ui/spec.md
+     ✓ Created openspec/changes/add-dark-mode/design.md
 
      Now available: tasks
      Run /opsx:continue to create the next artifact.
@@ -249,9 +249,9 @@ You: /opsx:ff add-dark-mode
 AI:  Fast-forwarding add-dark-mode...
 
      ✓ Creating proposal.md
-     ✓ Creating specs/ui/spec.md
      ✓ Creating design.md
      ✓ Creating tasks.md
+     ✓ Creating specs/ui/spec.md
 
      All planning artifacts complete!
      Ready for implementation. Run /opsx:apply to begin.
@@ -283,7 +283,7 @@ Implement tasks from the change. Works through the task list, writing code and c
 - Reads `tasks.md` and identifies incomplete tasks
 - Works through tasks one by one
 - Writes code, creates files, runs tests as needed
-- Marks tasks complete with checkboxes `[x]`
+- Marks tasks complete by appending ` — done` to the task heading
 
 **Example:**
 ```
@@ -292,26 +292,26 @@ You: /opsx:apply
 AI:  Implementing add-dark-mode...
 
      Reading tasks.md:
-     - [ ] 1.1 Create ThemeContext
-     - [ ] 1.2 Add CSS custom properties
-     - [ ] 1.3 Implement localStorage persistence
+     Task 1: Create theme infrastructure
+     Task 2: Build UI components
+     Task 3: Define dark theme palette
 
-     Working on 1.1: Create ThemeContext...
-     [Creates src/context/ThemeContext.tsx]
+     Working on Task 1: Create theme infrastructure...
+     [Creates src/context/ThemeContext.tsx, updates globals.css]
 
-     ✓ 1.1 Complete
+     ✓ Task 1 complete
 
-     Working on 1.2: Add CSS custom properties...
-     [Updates src/styles/globals.css]
+     Working on Task 2: Build UI components...
+     [Creates ThemeToggle, updates Settings and Header]
 
-     ✓ 1.2 Complete
+     ✓ Task 2 complete
      ...
 ```
 
 **Tips:**
 - Can resume where you left off if interrupted
 - Use for parallel changes by specifying the change name
-- Completion state is tracked in `tasks.md` checkboxes
+- Completion state is tracked in `tasks.md` via ` — done` suffix on headings
 
 ---
 
@@ -339,7 +339,7 @@ Validate that implementation matches your change artifacts. Checks completeness,
 
 | Dimension | What it validates |
 |-----------|-------------------|
-| **Completeness** | All tasks done, all requirements implemented, scenarios covered |
+| **Completeness** | All tasks done, all spec behaviors implemented, examples covered |
 | **Correctness** | Implementation matches spec intent, edge cases handled |
 | **Coherence** | Design decisions reflected in code, patterns consistent |
 
@@ -350,9 +350,9 @@ You: /opsx:verify
 AI:  Verifying add-dark-mode...
 
      COMPLETENESS
-     ✓ All 8 tasks in tasks.md are checked
-     ✓ All requirements in specs have corresponding code
-     ⚠ Scenario "System preference detection" has no test coverage
+     ✓ All 8 tasks in tasks.md are done
+     ✓ All spec behaviors have corresponding code
+     ⚠ "System preference detection" has no test coverage
 
      CORRECTNESS
      ✓ Implementation matches spec intent
@@ -399,7 +399,7 @@ AI:  Verifying add-dark-mode...
 
 **What it does:**
 - Reads delta specs from change folder
-- Parses ADDED/MODIFIED/REMOVED/RENAMED sections
+- Parses ADDED/MODIFIED/REMOVED/RENAMED sections and their target `##` sections
 - Merges changes into main `openspec/specs/` directory
 - Preserves existing content not mentioned in delta
 - Does not archive the change (remains active)
@@ -414,8 +414,8 @@ AI:  Syncing add-dark-mode delta specs...
      Target:  openspec/specs/ui/spec.md
 
      Changes to apply:
-     ✓ ADDED: Theme Selection requirement (2 scenarios)
-     ✓ ADDED: Accessibility requirement (1 scenario)
+     ✓ ADDED Behavior: Theme Selection
+     ✓ ADDED Behavior: Accessibility
 
      Merging...
      ✓ openspec/specs/ui/spec.md updated
@@ -434,7 +434,7 @@ AI:  Syncing add-dark-mode delta specs...
 
 **Tips:**
 - Sync is intelligent, not copy-paste
-- Can add scenarios to existing requirements without duplicating
+- Can add blocks to existing sections without duplicating
 - Change stays active after sync (not archived)
 - Most users will never need to call this directly—archive prompts if needed
 
@@ -469,9 +469,9 @@ AI:  Archiving add-dark-mode...
 
      Artifact status:
      ✓ proposal.md exists
-     ✓ specs/ exists
      ✓ design.md exists
-     ✓ tasks.md exists (8/8 tasks complete)
+     ✓ tasks.md exists (all tasks done)
+     ✓ specs/ exists
 
      Delta specs: Not yet synced
      → Sync now? (recommended)
@@ -518,9 +518,9 @@ Archive multiple completed changes at once. Handles spec conflicts between chang
 You: /opsx:bulk-archive
 
 AI:  Found 3 completed changes:
-     - add-dark-mode (8/8 tasks complete)
-     - fix-login-bug (3/3 tasks complete)
-     - update-footer (2/2 tasks complete)
+     - add-dark-mode (8/8 tasks done)
+     - fix-login-bug (3/3 tasks done)
+     - update-footer (2/2 tasks done)
 
      Checking for spec conflicts...
      ⚠ add-dark-mode and update-footer both touch specs/ui/
@@ -570,9 +570,9 @@ Guided onboarding through the complete OpenSpec workflow. An interactive tutoria
 2. Finding an improvement opportunity
 3. Creating a change (`/opsx:new`)
 4. Writing the proposal
-5. Creating specs
-6. Writing the design
-7. Creating tasks
+5. Writing the design
+6. Creating tasks
+7. Writing specs
 8. Implementing tasks (`/opsx:apply`)
 9. Verifying implementation
 10. Archiving the change
@@ -632,7 +632,7 @@ These commands use the older "all-at-once" workflow. They still work but OPSX co
 
 | Command | What it does |
 |---------|--------------|
-| `/openspec:proposal` | Create all artifacts at once (proposal, specs, design, tasks) |
+| `/openspec:proposal` | Create all artifacts at once (proposal, design, tasks, specs) |
 | `/openspec:apply` | Implement the change |
 | `/openspec:archive` | Archive the change |
 

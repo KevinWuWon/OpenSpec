@@ -507,7 +507,7 @@ Artifacts form a directed acyclic graph (DAG). Dependencies are **enablers**, no
   │  │  $ openspec instructions specs --change "add-auth" --json          │  │
   │  │                                                                    │  │
   │  │  {                                                                 │  │
-  │  │    "template": "# Specification\n\n## ADDED Requirements...",      │  │
+  │  │    "template": "# Specification\n\n## ADDED Behavior...",          │  │
   │  │    "dependencies": [{"id": "proposal", "path": "...", "done": true}│  │
   │  │    "unlocks": ["tasks"]                                            │  │
   │  │  }                                                                 │  │
@@ -625,7 +625,7 @@ artifacts:
 
 Schemas define what artifacts exist and their dependencies. Currently available:
 
-- **spec-driven** (default): proposal → specs → design → tasks
+- **spec-driven** (default): proposal → design → tasks → specs
 
 ```bash
 # List available schemas

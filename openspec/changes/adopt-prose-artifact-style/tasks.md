@@ -1,6 +1,6 @@
 # Adopt Prose Artifact Style — Tasks
 
-### Task 1: Rename and generalize the block parser (refactoring)
+### Task 1: Rename and generalize the block parser (refactoring) — done
 
 Replace `RequirementBlock` with `Block` and `REQUIREMENT_HEADER_REGEX` with `BLOCK_HEADER_REGEX` (`/^###\s+(.+)\s*$/`) throughout `requirement-blocks.ts`. Rename the file to `block-parser.ts`. Replace `extractRequirementsSection` with `extractSection(content, sectionName)` that finds any `## {sectionName}` and parses `###` blocks within it. Add `extractAllSections(content)` that returns all `##` sections with their parsed blocks. Update all imports across the codebase.
 
@@ -13,7 +13,7 @@ Replace `RequirementBlock` with `Block` and `REQUIREMENT_HEADER_REGEX` with `BLO
 - No reference to hardcoded `## Requirements` section name
 - All existing tests updated to use new interface names
 
-### Task 2: Generalize delta parsing to multi-section (refactoring)
+### Task 2: Generalize delta parsing to multi-section (refactoring) — done
 
 Update `parseDeltaSpec` to match `## (ADDED|MODIFIED|REMOVED|RENAMED)\s+(.+)` and produce a `DeltaPlan` keyed by target section name (for example, `sections: Record<string, SectionDeltaPlan>`). Update `parseRequirementBlocksFromSection` (rename to `parseBlocksFromSection`) to use `BLOCK_HEADER_REGEX`. Update `parseRemovedNames` to match `### Name` instead of `### Requirement: Name`, and update `parseRenamedPairs` to parse canonical `FROM: ### Old Name` / `TO: ### New Name` entries.
 
@@ -27,7 +27,7 @@ Update `parseDeltaSpec` to match `## (ADDED|MODIFIED|REMOVED|RENAMED)\s+(.+)` an
 - Renamed pairs parsed from `FROM: ### Old Name` / `TO: ### New Name` format
 - Non-canonical rename bodies (legacy `### Requirement:` or freeform rename syntax) fail parsing/validation
 
-### Task 3: Update spec apply logic for multi-section deltas (feature)
+### Task 3: Update spec apply logic for multi-section deltas (feature) — done
 
 Update `buildUpdatedSpec` in `specs-apply.ts` to iterate over `DeltaPlan.sections`, applying each section's deltas to the corresponding `##` section in the target spec. Update `buildSpecSkeleton` to seed only `ADDED {Section}` targets for missing specs instead of hardcoding `## Requirements`.
 
@@ -43,7 +43,7 @@ Update `buildUpdatedSpec` in `specs-apply.ts` to iterate over `DeltaPlan.section
 - Error messages reference `### Name` not `### Requirement: Name`
 - Archive of a change with multi-section deltas produces correct merged spec
 
-### Task 4: Update validation to drop format enforcement (refactoring)
+### Task 4: Update validation to drop format enforcement (refactoring) — done
 
 Remove SHALL/MUST and Scenario enforcement from validation. Rename `RequirementSchema` to `BlockSchema` in `base.schema.ts` — keep the text-exists check, drop the `SHALL|MUST` refine and min-1 scenarios constraint. Update `SpecSchema` to accept any `##` sections with `###` blocks instead of requiring a `requirements` array. Update `ChangeSchema` to require `problem`, `constraints`, `successCriteria`, and `nonGoals` sections instead of `why`/`whatChanges`, and permit zero deltas before specs are authored. Remove `containsShallOrMust`, `countScenarios`, and scenario-related validation messages from `validator.ts` and `constants.ts`.
 
@@ -61,7 +61,7 @@ Remove SHALL/MUST and Scenario enforcement from validation. Rename `RequirementS
 - Legacy markers (`### Requirement:`, `#### Scenario:`, non-canonical rename bodies) fail validation
 - Change validation accepts proposal/design/tasks-only changes with empty deltas
 
-### Task 5: Update markdown parser for prose format (refactoring)
+### Task 5: Update markdown parser for prose format (refactoring) — done
 
 Update `MarkdownParser.parseSpec` to accept any `##` sections instead of requiring `## Purpose` + `## Requirements`. Parse `###` blocks without `Requirement:` prefix. Don't require `#### Scenario:` children. Return a generalized structure. Update `ChangeParser.parseChangeWithDeltas` to require all four proposal sections (`## Problem`, `## Constraints`, `## Success Criteria`, `## Non-goals`) instead of `## Why`/`## What Changes`.
 
@@ -74,7 +74,7 @@ Update `MarkdownParser.parseSpec` to accept any `##` sections instead of requiri
 - `parseChangeWithDeltas` parses proposals when all four required proposal sections are present
 - `parseChangeWithDeltas` fails for duplicate required sections, out-of-order required sections, or extra top-level proposal sections
 
-### Task 6: Update schema definition and templates (feature)
+### Task 6: Update schema definition and templates (feature) — done
 
 Update `schemas/spec-driven/schema.yaml` with new artifact instructions for all five artifacts (proposal, specs, design, tasks, decisions). Update all template files in `schemas/spec-driven/templates/` to the new formats. Add `decisions.md` template. Update the artifact dependency chain to `proposal -> design -> tasks -> specs` with decisions as an optional sidecar.
 
@@ -89,7 +89,7 @@ Update `schemas/spec-driven/schema.yaml` with new artifact instructions for all 
 - Schema instruction text describes prose format, not Requirement/Scenario format
 - Artifact dependency: `proposal -> design -> tasks -> specs`
 
-### Task 7: Update workflow templates and skill generation (feature)
+### Task 7: Update workflow templates and skill generation (feature) — done
 
 Update all workflow template files in `src/core/templates/workflows/` to reference the new artifact formats. Update `propose.ts` to describe Problem/Constraints/Success Criteria/Non-goals and mention decisions.md. Update `apply-change.ts` to parse `### Task N:` headings instead of `- [ ]` checkboxes, and mark completion with `— done` suffix. Update skill generation in `src/core/shared/skill-generation.ts` to emit prose format guidance.
 
@@ -101,7 +101,7 @@ Update all workflow template files in `src/core/templates/workflows/` to referen
 - No reference to `### Requirement:`, `#### Scenario:`, SHALL/MUST, or WHEN/THEN in any template
 - Generated skills for all supported tools use prose format guidance
 
-### Task 8: Align parsing and validation with specs-last workflow (feature)
+### Task 8: Align parsing and validation with specs-last workflow (feature) — done
 
 Update parsing and validation so `proposal -> design -> tasks -> specs` works without requiring speculative deltas. `parseChangeWithDeltas` should return an empty delta list when no spec artifacts exist yet. Delta enforcement remains active once spec deltas are present and when running archive-time spec validation.
 
@@ -115,7 +115,7 @@ Update parsing and validation so `proposal -> design -> tasks -> specs` works wi
 - `openspec status --change <name>` treats missing `specs/*/spec.md` as valid pre-spec state (`not started`), not as error
 - `openspec status --change <name>` and `openspec instructions apply --change <name>` report the same completion counts
 
-### Task 9: Update openspec-conventions spec as reference example (feature)
+### Task 9: Update openspec-conventions spec as reference example (feature) — done
 
 Rewrite `openspec/specs/openspec-conventions/spec.md` in the new prose format. This spec is self-referential — it defines the format that all other specs use. It should serve as both the format definition and a reference example of the prose style.
 
@@ -130,7 +130,7 @@ Rewrite `openspec/specs/openspec-conventions/spec.md` in the new prose format. T
 - Documents the decisions format (Q&A with options and answers)
 - The spec itself uses the format it describes
 
-### Task 10: Update tests (refactoring)
+### Task 10: Update tests (refactoring) — done
 
 Update all test files that assert on the old format — requirement header regex matches, scenario parsing, SHALL/MUST validation, checkbox task tracking, proposal Why/What sections. Add new tests for multi-section delta parsing, prose block parsing, and task-heading tracking.
 
@@ -151,7 +151,7 @@ Update all test files that assert on the old format — requirement header regex
 - Tests cover deterministic insertion order when ADDED creates new sections
 - No test references `### Requirement:`, `#### Scenario:`, or `containsShallOrMust`
 
-### Task 11: Update documentation (feature)
+### Task 11: Update documentation (feature) — done
 
 Update user-facing documentation to describe the new artifact formats. Update examples throughout to use prose style.
 

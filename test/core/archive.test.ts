@@ -100,81 +100,66 @@ describe('ArchiveCommand', () => {
       const changeSpecDir = path.join(changeDir, 'specs', 'test-capability');
       await fs.mkdir(changeSpecDir, { recursive: true });
       
-      // Create delta-based change spec (ADDED requirement)
+      // Create delta-based change spec (ADDED block)
       const specContent = `# Test Capability Spec - Changes
 
-## ADDED Requirements
+## ADDED Behavior
 
-### Requirement: The system SHALL provide test capability
-
-#### Scenario: Basic test
-Given a test condition
-When an action occurs
-Then expected result happens`;
+### Test Capability
+The system provides test capability. Given a test condition, when an action occurs the expected result happens.`;
       await fs.writeFile(path.join(changeSpecDir, 'spec.md'), specContent);
-      
+
       // Execute archive with --yes flag and skip validation for speed
       await archiveCommand.execute(changeName, { yes: true, noValidate: true });
-      
-      // Verify spec was created from skeleton and ADDED requirement applied
+
+      // Verify spec was created from skeleton and ADDED block applied
       const mainSpecPath = path.join(tempDir, 'openspec', 'specs', 'test-capability', 'spec.md');
       const updatedContent = await fs.readFile(mainSpecPath, 'utf-8');
       expect(updatedContent).toContain('# test-capability Specification');
       expect(updatedContent).toContain('## Purpose');
       expect(updatedContent).toContain(`created by archiving change ${changeName}`);
-      expect(updatedContent).toContain('## Requirements');
-      expect(updatedContent).toContain('### Requirement: The system SHALL provide test capability');
-      expect(updatedContent).toContain('#### Scenario: Basic test');
+      expect(updatedContent).toContain('## Behavior');
+      expect(updatedContent).toContain('### Test Capability');
+      expect(updatedContent).toContain('The system provides test capability');
     });
 
-    it('should allow REMOVED requirements when creating new spec file (issue #403)', async () => {
+    it('should error on REMOVED requirements when creating new spec file', async () => {
       const changeName = 'new-spec-with-removed';
       const changeDir = path.join(tempDir, 'openspec', 'changes', changeName);
       const changeSpecDir = path.join(changeDir, 'specs', 'gift-card');
       await fs.mkdir(changeSpecDir, { recursive: true });
-      
-      // Create delta spec with both ADDED and REMOVED requirements
-      // This simulates refactoring where old fields are removed and new ones are added
+
+      // Create delta spec with both ADDED and REMOVED blocks
       const specContent = `# Gift Card - Changes
 
-## ADDED Requirements
+## ADDED Behavior
 
-### Requirement: Logo and Background Color
-The system SHALL support logo and backgroundColor fields for gift cards.
+### Logo and Background Color
+The system supports logo and backgroundColor fields for gift cards. When a gift card is displayed, it shows the logo and backgroundColor.
 
-#### Scenario: Display gift card with logo
-- **WHEN** a gift card is displayed
-- **THEN** it shows the logo and backgroundColor
+## REMOVED Behavior
 
-## REMOVED Requirements
-
-### Requirement: Image Field
-### Requirement: Thumbnail Field`;
+### Image Field
+### Thumbnail Field`;
       await fs.writeFile(path.join(changeSpecDir, 'spec.md'), specContent);
-      
-      // Execute archive - should succeed with warning about REMOVED requirements
+
+      // Execute archive - should abort with error (REMOVED not allowed for new specs)
       await archiveCommand.execute(changeName, { yes: true, noValidate: true });
-      
-      // Verify warning was logged about REMOVED requirements being ignored
+
+      // Verify error message mentions only ADDED allowed for new specs
       expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('Warning: gift-card - 2 REMOVED requirement(s) ignored for new spec (nothing to remove).')
+        expect.stringContaining('gift-card: target spec does not exist; only ADDED blocks are allowed for new specs.')
       );
-      
-      // Verify spec was created with only ADDED requirements
+      expect(console.log).toHaveBeenCalledWith('Aborted. No files were changed.');
+
+      // Verify spec was NOT created
       const mainSpecPath = path.join(tempDir, 'openspec', 'specs', 'gift-card', 'spec.md');
-      const updatedContent = await fs.readFile(mainSpecPath, 'utf-8');
-      expect(updatedContent).toContain('# gift-card Specification');
-      expect(updatedContent).toContain('### Requirement: Logo and Background Color');
-      expect(updatedContent).toContain('#### Scenario: Display gift card with logo');
-      // REMOVED requirements should not be in the final spec
-      expect(updatedContent).not.toContain('### Requirement: Image Field');
-      expect(updatedContent).not.toContain('### Requirement: Thumbnail Field');
-      
-      // Verify change was archived successfully
+      await expect(fs.access(mainSpecPath)).rejects.toThrow();
+
+      // Verify change was NOT archived
       const archiveDir = path.join(tempDir, 'openspec', 'changes', 'archive');
       const archives = await fs.readdir(archiveDir);
-      expect(archives.length).toBeGreaterThan(0);
-      expect(archives.some(a => a.includes(changeName))).toBe(true);
+      expect(archives.some(a => a.includes(changeName))).toBe(false);
     });
 
     it('should still error on MODIFIED when creating new spec file', async () => {
@@ -183,17 +168,17 @@ The system SHALL support logo and backgroundColor fields for gift cards.
       const changeSpecDir = path.join(changeDir, 'specs', 'new-capability');
       await fs.mkdir(changeSpecDir, { recursive: true });
       
-      // Create delta spec with MODIFIED requirement (should fail for new spec)
+      // Create delta spec with MODIFIED block (should fail for new spec)
       const specContent = `# New Capability - Changes
 
-## ADDED Requirements
+## ADDED Behavior
 
-### Requirement: New Feature
+### New Feature
 New feature description.
 
-## MODIFIED Requirements
+## MODIFIED Behavior
 
-### Requirement: Existing Feature
+### Existing Feature
 Modified content.`;
       await fs.writeFile(path.join(changeSpecDir, 'spec.md'), specContent);
       
@@ -202,14 +187,14 @@ Modified content.`;
       
       // Verify error message mentions MODIFIED not allowed for new specs
       expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('new-capability: target spec does not exist; only ADDED requirements are allowed for new specs. MODIFIED and RENAMED operations require an existing spec.')
+        expect.stringContaining('new-capability: target spec does not exist; only ADDED blocks are allowed for new specs.')
       );
       expect(console.log).toHaveBeenCalledWith('Aborted. No files were changed.');
-      
+
       // Verify spec was NOT created
       const mainSpecPath = path.join(tempDir, 'openspec', 'specs', 'new-capability', 'spec.md');
       await expect(fs.access(mainSpecPath)).rejects.toThrow();
-      
+
       // Verify change was NOT archived
       const archiveDir = path.join(tempDir, 'openspec', 'changes', 'archive');
       const archives = await fs.readdir(archiveDir);
@@ -221,26 +206,26 @@ Modified content.`;
       const changeDir = path.join(tempDir, 'openspec', 'changes', changeName);
       const changeSpecDir = path.join(changeDir, 'specs', 'another-capability');
       await fs.mkdir(changeSpecDir, { recursive: true });
-      
-      // Create delta spec with RENAMED requirement (should fail for new spec)
+
+      // Create delta spec with RENAMED block (should fail for new spec)
       const specContent = `# Another Capability - Changes
 
-## ADDED Requirements
+## ADDED Behavior
 
-### Requirement: New Feature
+### New Feature
 New feature description.
 
-## RENAMED Requirements
-- FROM: \`### Requirement: Old Name\`
-- TO: \`### Requirement: New Name\``;
+## RENAMED Behavior
+- FROM: \`### Old Name\`
+- TO: \`### New Name\``;
       await fs.writeFile(path.join(changeSpecDir, 'spec.md'), specContent);
-      
+
       // Execute archive - should abort with error message (not throw, but log and return)
       await archiveCommand.execute(changeName, { yes: true, noValidate: true });
-      
+
       // Verify error message mentions RENAMED not allowed for new specs
       expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('another-capability: target spec does not exist; only ADDED requirements are allowed for new specs. MODIFIED and RENAMED operations require an existing spec.')
+        expect.stringContaining('another-capability: target spec does not exist; only ADDED blocks are allowed for new specs.')
       );
       expect(console.log).toHaveBeenCalledWith('Aborted. No files were changed.');
       
@@ -351,16 +336,10 @@ New feature description.
 
       const deltaSpec = `# Unstable Capability
 
-## ADDED Requirements
+## ADDED Behavior
 
-### Requirement: Logging Feature
-**ID**: REQ-LOG-001
-
-The system will log all events.
-
-#### Scenario: Event recorded
-- **WHEN** an event occurs
-- **THEN** it is captured`;
+### Logging Feature
+The system logs all events. When an event occurs, it is captured.`;
       await fs.writeFile(path.join(changeSpecDir, 'spec.md'), deltaSpec);
       await fs.writeFile(path.join(changeDir, 'tasks.md'), '- [x] Task 1\n');
 
@@ -398,14 +377,10 @@ The system will log all events.
 ## Purpose
 This is a test capability specification.
 
-## Requirements
+## Behavior
 
-### The system SHALL provide test capability
-
-#### Scenario: Basic test
-Given a test condition
-When an action occurs
-Then expected result happens`;
+### Test Capability
+The system provides test capability. Given a test condition, when an action occurs the expected result happens.`;
       await fs.writeFile(path.join(changeSpecDir, 'spec.md'), specContent);
       
       // Mock confirm to return false (decline spec updates)
@@ -450,25 +425,25 @@ Then expected result happens`;
 ## Purpose
 Alpha purpose.
 
-## Requirements
+## Behavior
 
-### Requirement: Important Rule
+### Important Rule
 Some details.`;
       await fs.writeFile(path.join(mainSpecDir, 'spec.md'), mainContent);
 
-      // Change attempts to modify the same requirement but with trailing spaces after the name
+      // Change attempts to modify the same block but with trailing spaces after the name
       const deltaContent = `# Alpha - Changes
 
-## MODIFIED Requirements
+## MODIFIED Behavior
 
-### Requirement: Important Rule   
+### Important Rule
 Updated details.`;
       await fs.writeFile(path.join(changeSpecDir, 'spec.md'), deltaContent);
 
       await archiveCommand.execute(changeName, { yes: true, noValidate: true });
 
       const updated = await fs.readFile(path.join(mainSpecDir, 'spec.md'), 'utf-8');
-      expect(updated).toContain('### Requirement: Important Rule');
+      expect(updated).toContain('### Important Rule');
       expect(updated).toContain('Updated details.');
     });
 
@@ -486,42 +461,42 @@ Updated details.`;
 ## Purpose
 Beta purpose.
 
-## Requirements
+## Behavior
 
-### Requirement: A
+### A
 content A
 
-### Requirement: B
+### B
 content B`;
       await fs.writeFile(path.join(mainSpecDir, 'spec.md'), mainContent);
 
       // Rename A->C, Remove B, Modify C, Add D
       const deltaContent = `# Beta - Changes
 
-## RENAMED Requirements
-- FROM: \`### Requirement: A\`
-- TO: \`### Requirement: C\`
+## RENAMED Behavior
+- FROM: \`### A\`
+- TO: \`### C\`
 
-## REMOVED Requirements
-### Requirement: B
+## REMOVED Behavior
+### B
 
-## MODIFIED Requirements
-### Requirement: C
+## MODIFIED Behavior
+### C
 updated C
 
-## ADDED Requirements
-### Requirement: D
+## ADDED Behavior
+### D
 content D`;
       await fs.writeFile(path.join(changeSpecDir, 'spec.md'), deltaContent);
 
       await archiveCommand.execute(changeName, { yes: true, noValidate: true });
 
       const updated = await fs.readFile(path.join(mainSpecDir, 'spec.md'), 'utf-8');
-      expect(updated).toContain('### Requirement: C');
+      expect(updated).toContain('### C');
       expect(updated).toContain('updated C');
-      expect(updated).toContain('### Requirement: D');
-      expect(updated).not.toContain('### Requirement: A');
-      expect(updated).not.toContain('### Requirement: B');
+      expect(updated).toContain('### D');
+      expect(updated).not.toContain('### A\n');
+      expect(updated).not.toContain('### B\n');
     });
 
     it('should abort with error when MODIFIED/REMOVED reference non-existent requirements', async () => {
@@ -530,7 +505,7 @@ content D`;
       const changeSpecDir = path.join(changeDir, 'specs', 'gamma');
       await fs.mkdir(changeSpecDir, { recursive: true });
 
-      // Main spec with no requirements
+      // Main spec with no blocks
       const mainSpecDir = path.join(tempDir, 'openspec', 'specs', 'gamma');
       await fs.mkdir(mainSpecDir, { recursive: true });
       const mainContent = `# gamma Specification
@@ -538,18 +513,18 @@ content D`;
 ## Purpose
 Gamma purpose.
 
-## Requirements`;
+## Behavior`;
       await fs.writeFile(path.join(mainSpecDir, 'spec.md'), mainContent);
 
-      // Delta tries to modify and remove non-existent requirement
+      // Delta tries to modify and remove non-existent blocks
       const deltaContent = `# Gamma - Changes
 
-## MODIFIED Requirements
-### Requirement: Missing
+## MODIFIED Behavior
+### Missing
 new text
 
-## REMOVED Requirements
-### Requirement: Another Missing`;
+## REMOVED Behavior
+### Another Missing`;
       await fs.writeFile(path.join(changeSpecDir, 'spec.md'), deltaContent);
 
       await archiveCommand.execute(changeName, { yes: true, noValidate: true });
@@ -575,21 +550,21 @@ new text
 ## Purpose
 Delta purpose.
 
-## Requirements
+## Behavior
 
-### Requirement: Old
+### Old
 old body`;
       await fs.writeFile(path.join(mainSpecDir, 'spec.md'), mainContent);
 
       // Delta: rename Old->New, but MODIFIED references Old (should abort)
       const badDelta = `# Delta - Changes
 
-## RENAMED Requirements
-- FROM: \`### Requirement: Old\`
-- TO: \`### Requirement: New\`
+## RENAMED Behavior
+- FROM: \`### Old\`
+- TO: \`### New\`
 
-## MODIFIED Requirements
-### Requirement: Old
+## MODIFIED Behavior
+### Old
 new body`;
       await fs.writeFile(path.join(changeSpecDir, 'spec.md'), badDelta);
 
@@ -607,20 +582,20 @@ new body`;
       // Fix MODIFIED to reference New (should succeed)
       const goodDelta = `# Delta - Changes
 
-## RENAMED Requirements
-- FROM: \`### Requirement: Old\`
-- TO: \`### Requirement: New\`
+## RENAMED Behavior
+- FROM: \`### Old\`
+- TO: \`### New\`
 
-## MODIFIED Requirements
-### Requirement: New
+## MODIFIED Behavior
+### New
 new body`;
       await fs.writeFile(path.join(changeSpecDir, 'spec.md'), goodDelta);
 
       await archiveCommand.execute(changeName, { yes: true, noValidate: true });
       const updated = await fs.readFile(path.join(mainSpecDir, 'spec.md'), 'utf-8');
-      expect(updated).toContain('### Requirement: New');
+      expect(updated).toContain('### New');
       expect(updated).toContain('new body');
-      expect(updated).not.toContain('### Requirement: Old');
+      expect(updated).not.toContain('### Old');
     });
 
     it('should process multiple specs atomically (any failure aborts all)', async () => {
@@ -639,9 +614,9 @@ new body`;
 ## Purpose
 Epsilon purpose.
 
-## Requirements
+## Behavior
 
-### Requirement: E1
+### E1
 e1`);
 
       const zetaMain = path.join(tempDir, 'openspec', 'specs', 'zeta', 'spec.md');
@@ -651,30 +626,30 @@ e1`);
 ## Purpose
 Zeta purpose.
 
-## Requirements
+## Behavior
 
-### Requirement: Z1
+### Z1
 z1`);
 
       // Delta: epsilon is valid modification; zeta tries to remove non-existent -> should abort both
       await fs.writeFile(path.join(spec1Dir, 'spec.md'), `# Epsilon - Changes
 
-## MODIFIED Requirements
-### Requirement: E1
+## MODIFIED Behavior
+### E1
 E1 updated`);
 
       await fs.writeFile(path.join(spec2Dir, 'spec.md'), `# Zeta - Changes
 
-## REMOVED Requirements
-### Requirement: Missing`);
+## REMOVED Behavior
+### Missing`);
 
       await archiveCommand.execute(changeName, { yes: true, noValidate: true });
 
       const e1 = await fs.readFile(epsilonMain, 'utf-8');
       const z1 = await fs.readFile(zetaMain, 'utf-8');
-      expect(e1).toContain('### Requirement: E1');
+      expect(e1).toContain('### E1');
       expect(e1).not.toContain('E1 updated');
-      expect(z1).toContain('### Requirement: Z1');
+      expect(z1).toContain('### Z1');
       // changeDir should still exist
       await expect(fs.access(changeDir)).resolves.not.toThrow();
     });
@@ -690,15 +665,15 @@ E1 updated`);
       // Existing main specs
       const omegaMain = path.join(tempDir, 'openspec', 'specs', 'omega', 'spec.md');
       await fs.mkdir(path.dirname(omegaMain), { recursive: true });
-      await fs.writeFile(omegaMain, `# omega Specification\n\n## Purpose\nOmega purpose.\n\n## Requirements\n\n### Requirement: O1\no1`);
+      await fs.writeFile(omegaMain, `# omega Specification\n\n## Purpose\nOmega purpose.\n\n## Behavior\n\n### O1\no1`);
 
       const psiMain = path.join(tempDir, 'openspec', 'specs', 'psi', 'spec.md');
       await fs.mkdir(path.dirname(psiMain), { recursive: true });
-      await fs.writeFile(psiMain, `# psi Specification\n\n## Purpose\nPsi purpose.\n\n## Requirements\n\n### Requirement: P1\np1`);
+      await fs.writeFile(psiMain, `# psi Specification\n\n## Purpose\nPsi purpose.\n\n## Behavior\n\n### P1\np1`);
 
       // Deltas: omega add one, psi rename and modify -> totals: +1, ~1, -0, →1
-      await fs.writeFile(path.join(spec1Dir, 'spec.md'), `# Omega - Changes\n\n## ADDED Requirements\n\n### Requirement: O2\nnew`);
-      await fs.writeFile(path.join(spec2Dir, 'spec.md'), `# Psi - Changes\n\n## RENAMED Requirements\n- FROM: \`### Requirement: P1\`\n- TO: \`### Requirement: P2\`\n\n## MODIFIED Requirements\n### Requirement: P2\nupdated`);
+      await fs.writeFile(path.join(spec1Dir, 'spec.md'), `# Omega - Changes\n\n## ADDED Behavior\n\n### O2\nnew`);
+      await fs.writeFile(path.join(spec2Dir, 'spec.md'), `# Psi - Changes\n\n## RENAMED Behavior\n- FROM: \`### P1\`\n- TO: \`### P2\`\n\n## MODIFIED Behavior\n### P2\nupdated`);
 
       await archiveCommand.execute(changeName, { yes: true, noValidate: true });
 

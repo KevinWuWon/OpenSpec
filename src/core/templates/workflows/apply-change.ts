@@ -67,11 +67,11 @@ export function getApplyChangeSkillTemplate(): SkillTemplate {
 
 6. **Implement tasks (loop until done or blocked)**
 
-   For each pending task:
+   For each pending task (identified by \`### Task N:\` headings without \`— done\` suffix):
    - Show which task is being worked on
    - Make the code changes required
    - Keep changes minimal and focused
-   - Mark task complete in the tasks file: \`- [ ]\` → \`- [x]\`
+   - Mark task complete by appending \`— done\` to the task heading (e.g., \`### Task 3: Name (type)\` → \`### Task 3: Name (type) — done\`)
    - Continue to next task
 
    **Pause if:**
@@ -112,8 +112,8 @@ Working on task 4/7: <task description>
 **Progress:** 7/7 tasks complete ✓
 
 ### Completed This Session
-- [x] Task 1
-- [x] Task 2
+- Task 1 — done
+- Task 2 — done
 ...
 
 All tasks complete! Ready to archive this change.
@@ -145,7 +145,7 @@ What would you like to do?
 - If task is ambiguous, pause and ask before implementing
 - If implementation reveals issues, pause and suggest artifact updates
 - Keep code changes minimal and scoped to each task
-- Update task checkbox immediately after completing each task
+- Append \`— done\` to task heading immediately after completing each task
 - Pause on errors, blockers, or unclear requirements - don't guess
 - Use contextFiles from CLI output, don't assume specific file names
 
@@ -224,11 +224,11 @@ export function getOpsxApplyCommandTemplate(): CommandTemplate {
 
 6. **Implement tasks (loop until done or blocked)**
 
-   For each pending task:
+   For each pending task (identified by \`### Task N:\` headings without \`— done\` suffix):
    - Show which task is being worked on
    - Make the code changes required
    - Keep changes minimal and focused
-   - Mark task complete in the tasks file: \`- [ ]\` → \`- [x]\`
+   - Mark task complete by appending \`— done\` to the task heading (e.g., \`### Task 3: Name (type)\` → \`### Task 3: Name (type) — done\`)
    - Continue to next task
 
    **Pause if:**
@@ -269,8 +269,8 @@ Working on task 4/7: <task description>
 **Progress:** 7/7 tasks complete ✓
 
 ### Completed This Session
-- [x] Task 1
-- [x] Task 2
+- Task 1 — done
+- Task 2 — done
 ...
 
 All tasks complete! You can archive this change with \`/opsx:archive\`.
@@ -302,7 +302,7 @@ What would you like to do?
 - If task is ambiguous, pause and ask before implementing
 - If implementation reveals issues, pause and suggest artifact updates
 - Keep code changes minimal and scoped to each task
-- Update task checkbox immediately after completing each task
+- Append \`— done\` to task heading immediately after completing each task
 - Pause on errors, blockers, or unclear requirements - don't guess
 - Use contextFiles from CLI output, don't assume specific file names
 

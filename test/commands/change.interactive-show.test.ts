@@ -12,7 +12,7 @@ describe('change show (interactive behavior)', () => {
 
   beforeEach(async () => {
     await fs.mkdir(changesDir, { recursive: true });
-    const content = `# Change: Demo\n\n## Why\n\n## What Changes\n- x`;
+    const content = `# Change: Demo\n\n## Problem\nExplain the motivation for this change.\n\n## Constraints\nMust not break existing behavior.\n\n## Success Criteria\nThe change is applied correctly and all tests pass.\n\n## Non-goals\nNo other capabilities are affected.`;
     await fs.mkdir(path.join(changesDir, 'demo'), { recursive: true });
     await fs.writeFile(path.join(changesDir, 'demo', 'proposal.md'), content, 'utf-8');
   });

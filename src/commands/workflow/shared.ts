@@ -38,6 +38,77 @@ export interface ApplyInstructions {
 }
 
 // -----------------------------------------------------------------------------
+// Task parsing
+// -----------------------------------------------------------------------------
+
+/**
+ * Parses tasks.md content and extracts task items with their completion status.
+ * Supports two formats:
+ * 1. Heading-based: `### Task N: Description (type) — done` (preferred, new format)
+ * 2. Checkbox-based: `- [x] Description` (legacy fallback)
+ *
+ * If heading-based tasks are found, checkbox tasks are ignored.
+ */
+export function parseTaskItems(content: string): TaskItem[] {
+  const headingTasks = parseHeadingTasks(content);
+  if (headingTasks.length > 0) {
+    return headingTasks;
+  }
+  return parseCheckboxTasks(content);
+}
+
+/**
+ * Parses `### Task N: Description` headings. A task is marked done
+ * when its heading ends with `— done` (em-dash) or `- done` (hyphen).
+ */
+function parseHeadingTasks(content: string): TaskItem[] {
+  const tasks: TaskItem[] = [];
+  const lines = content.split('\n');
+
+  for (const line of lines) {
+    const match = line.match(/^###\s+Task\s+(\d+)\s*:\s*(.+?)\s*$/);
+    if (match) {
+      const id = match[1];
+      let description = match[2];
+      // Check for done suffix: "— done" (em-dash) or "- done" (hyphen-dash)
+      const doneMatch = description.match(/\s*[—–-]\s*done\s*$/i);
+      const done = doneMatch !== null;
+      if (done) {
+        description = description.slice(0, -doneMatch![0].length).trim();
+      }
+      tasks.push({ id, description, done });
+    }
+  }
+
+  return tasks;
+}
+
+/**
+ * Legacy fallback: parses `- [ ]` / `- [x]` checkbox patterns.
+ */
+function parseCheckboxTasks(content: string): TaskItem[] {
+  const tasks: TaskItem[] = [];
+  const lines = content.split('\n');
+  let taskIndex = 0;
+
+  for (const line of lines) {
+    const checkboxMatch = line.match(/^[-*]\s*\[([ xX])\]\s*(.+)\s*$/);
+    if (checkboxMatch) {
+      taskIndex++;
+      const done = checkboxMatch[1].toLowerCase() === 'x';
+      const description = checkboxMatch[2].trim();
+      tasks.push({
+        id: `${taskIndex}`,
+        description,
+        done,
+      });
+    }
+  }
+
+  return tasks;
+}
+
+// -----------------------------------------------------------------------------
 // Constants
 // -----------------------------------------------------------------------------
 

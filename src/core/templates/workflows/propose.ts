@@ -13,9 +13,10 @@ export function getOpsxProposeSkillTemplate(): SkillTemplate {
     instructions: `Propose a new change - create the change and generate all artifacts in one step.
 
 I'll create a change with artifacts:
-- proposal.md (what & why)
-- design.md (how)
-- tasks.md (implementation steps)
+- proposal.md (Problem/Constraints/Success Criteria/Non-goals)
+- design.md (Overview/Architecture/Detailed Design/Non-goals)
+- tasks.md (numbered task sections with acceptance criteria)
+- decisions.md (optional Q&A record from exploration)
 
 When ready to implement, run /opsx:apply
 
@@ -124,9 +125,10 @@ export function getOpsxProposeCommandTemplate(): CommandTemplate {
     content: `Propose a new change - create the change and generate all artifacts in one step.
 
 I'll create a change with artifacts:
-- proposal.md (what & why)
-- design.md (how)
-- tasks.md (implementation steps)
+- proposal.md (Problem/Constraints/Success Criteria/Non-goals)
+- design.md (Overview/Architecture/Detailed Design/Non-goals)
+- tasks.md (numbered task sections with acceptance criteria)
+- decisions.md (optional Q&A record from exploration)
 
 When ready to implement, run /opsx:apply
 

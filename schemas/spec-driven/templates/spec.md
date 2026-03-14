@@ -1,8 +1,4 @@
-## ADDED Requirements
+## ADDED <!-- Section Name -->
 
-### Requirement: <!-- requirement name -->
-<!-- requirement text -->
-
-#### Scenario: <!-- scenario name -->
-- **WHEN** <!-- condition -->
-- **THEN** <!-- expected outcome -->
+### <!-- Block name -->
+<!-- Describe the behavior in plain prose. -->

@@ -117,17 +117,19 @@ If the user mentions a change or you detect one is relevant:
 
    | Insight Type | Where to Capture |
    |--------------|------------------|
-   | New requirement discovered | \`specs/<capability>/spec.md\` |
-   | Requirement changed | \`specs/<capability>/spec.md\` |
+   | New behavior discovered | \`specs/<capability>/spec.md\` |
+   | Behavior changed | \`specs/<capability>/spec.md\` |
    | Design decision made | \`design.md\` |
    | Scope changed | \`proposal.md\` |
    | New work identified | \`tasks.md\` |
+   | Question resolved | \`decisions.md\` |
    | Assumption invalidated | Relevant artifact |
 
    Example offers:
    - "That's a design decision. Capture it in design.md?"
-   - "This is a new requirement. Add it to specs?"
+   - "This is a new behavior. Add it to specs?"
    - "This changes scope. Update the proposal?"
+   - "That Q&A should go in decisions.md."
 
 4. **The user decides** - Offer and move on. Don't pressure. Don't auto-capture.
 
@@ -415,17 +417,19 @@ If the user mentions a change or you detect one is relevant:
 
    | Insight Type | Where to Capture |
    |--------------|------------------|
-   | New requirement discovered | \`specs/<capability>/spec.md\` |
-   | Requirement changed | \`specs/<capability>/spec.md\` |
+   | New behavior discovered | \`specs/<capability>/spec.md\` |
+   | Behavior changed | \`specs/<capability>/spec.md\` |
    | Design decision made | \`design.md\` |
    | Scope changed | \`proposal.md\` |
    | New work identified | \`tasks.md\` |
+   | Question resolved | \`decisions.md\` |
    | Assumption invalidated | Relevant artifact |
 
    Example offers:
    - "That's a design decision. Capture it in design.md?"
-   - "This is a new requirement. Add it to specs?"
+   - "This is a new behavior. Add it to specs?"
    - "This changes scope. Update the proposal?"
+   - "That Q&A should go in decisions.md."
 
 4. **The user decides** - Offer and move on. Don't pressure. Don't auto-capture.
 

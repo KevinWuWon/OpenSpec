@@ -1,47 +1,85 @@
-# OpenSpec Conventions Specification
+# OpenSpec Conventions
 
 ## Purpose
 
-OpenSpec conventions SHALL define how system capabilities are documented, how changes are proposed and tracked, and how specifications evolve over time. This meta-specification serves as the source of truth for OpenSpec's own conventions.
-## Requirements
-### Requirement: Structured conventions for specs and changes
+OpenSpec conventions define how system capabilities are documented, how changes are proposed and tracked, and how specifications evolve over time. This meta-specification serves as the source of truth for OpenSpec's own conventions — and uses the format it describes.
 
-OpenSpec conventions SHALL mandate a structured spec format with clear requirement and scenario sections so tooling can parse consistently.
+## Spec Format
 
-#### Scenario: Following the structured spec format
+### Writing Style
 
-- **WHEN** writing or updating OpenSpec specifications
-- **THEN** authors SHALL use `### Requirement: ...` followed by at least one `#### Scenario: ...` section
+Specs use plain prose organized under `###` headings within `##` sections. There is no formal markup — no `### Requirement:` prefix, no `#### Scenario:` blocks, no GIVEN/WHEN/THEN keywords, no RFC 2119 language (SHALL/MUST). Describe behavior in natural language. Agents infer edge cases from prose; humans can scan it.
 
-### Requirement: Behavior-First Specification Boundary
-OpenSpec specifications SHALL capture verifiable behavior contracts and avoid internal implementation detail.
+### Heading Structure
 
-#### Scenario: Writing behavior requirements
-- **WHEN** documenting a capability in `spec.md`
-- **THEN** requirements focus on externally observable behavior, interfaces, error handling, and constraints
-- **AND** scenarios remain testable or explicitly verifiable
+A spec starts with a `# Title` heading. Content is organized into `##` sections, each containing one or more `###` blocks. The `###` heading text is the merge key — the unique identifier used by the delta system to match blocks between specs and deltas. Heading text is matched case-sensitively after trimming whitespace.
 
-#### Scenario: Avoiding implementation leakage
-- **WHEN** details involve concrete library choices, class/function structure, or execution mechanics
-- **THEN** those details SHALL be documented in `design.md` or `tasks.md` instead of behavioral requirements
+Each `###` block contains prose describing one coherent concept, behavior, or constraint. Use `####` or bold text for sub-structure within a block — never `###`, since every `###` heading is a merge target.
 
-### Requirement: Progressive Rigor
-OpenSpec conventions SHALL keep specs lightweight by default and scale rigor only when risk or coordination complexity demands it.
+No duplicate `###` headings are allowed within a single `##` section. The same `###` heading may appear in different `##` sections.
 
-#### Scenario: Routine change specification
-- **WHEN** a change is local and low-risk
-- **THEN** authors use concise, behavior-first requirements with minimal ceremony
+### Behavior-First Content
 
-#### Scenario: High-risk or cross-boundary change specification
-- **WHEN** a change is cross-team, cross-repo, API-contract breaking, migration-heavy, or security/privacy sensitive
-- **THEN** authors increase detail and explicit validation expectations proportionally
+Specs capture externally observable behavior, interfaces, error handling, and constraints. Implementation details — library choices, class structure, execution mechanics — belong in `design.md`, not in specs.
 
-### Requirement: Project Structure
-An OpenSpec project SHALL maintain a consistent directory structure for specifications and changes.
+### Progressive Rigor
 
-#### Scenario: Initializing project structure
-- **WHEN** an OpenSpec project is initialized
-- **THEN** it SHALL have this structure:
+Specs stay lightweight by default. When a change is local and low-risk, use concise prose with minimal ceremony. When a change is cross-team, API-breaking, migration-heavy, or security-sensitive, increase detail proportionally.
+
+## Delta Operations
+
+### Delta Format
+
+Delta specs express changes to a target spec using operation-prefixed section headers:
+
+- `## ADDED {SectionName}` — adds new `###` blocks. Creates the target `##` section if it doesn't exist.
+- `## MODIFIED {SectionName}` — replaces existing `###` blocks by heading match. The target section must exist.
+- `## REMOVED {SectionName}` — removes `###` blocks by heading match. The target section must exist.
+- `## RENAMED {SectionName}` — renames `###` blocks within the section. The target section must exist.
+
+Repeated operation headers targeting the same section are valid and aggregated into a single plan. Conflicting operations on the same `###` block within a section are invalid.
+
+### Rename Entries
+
+Renamed blocks use canonical body entries:
+
+```
+FROM: ### Old Name
+TO: ### New Name
+```
+
+A `## RENAMED {Section}` block may contain multiple rename entries as repeated `FROM:` / `TO:` pairs. If content also changes, include the block under `## MODIFIED {Section}` using the new name.
+
+### Archive Process
+
+Archiving applies deltas to the current spec programmatically:
+
+1. Parse `RENAMED` sections and apply renames
+2. Parse `REMOVED` sections and remove by heading match
+3. Parse `MODIFIED` sections and replace by heading match (using new names if renamed)
+4. Parse `ADDED` sections and append new blocks
+
+All `MODIFIED`, `REMOVED`, and `RENAMED` headings must exist in the current spec. All `ADDED` headings must not already exist. Conflicts require manual resolution.
+
+For new specs (target doesn't exist), only `ADDED` sections seed the skeleton. `MODIFIED`, `REMOVED`, and `RENAMED` cannot create sections in a missing spec.
+
+Newly created sections append after existing sections in first-appearance order from delta parsing. Existing sections keep their original order.
+
+### Output Symbols
+
+CLI output uses these symbols for delta operations:
+
+- `+` for ADDED (green)
+- `~` for MODIFIED (yellow)
+- `-` for REMOVED (red)
+- `→` for RENAMED (cyan)
+
+## Project Structure
+
+### Directory Layout
+
+An OpenSpec project maintains this structure:
+
 ```
 openspec/
 ├── project.md              # Project-specific context
@@ -49,449 +87,120 @@ openspec/
 ├── specs/                  # Current deployed capabilities
 │   └── [capability]/       # Single, focused capability
 │       ├── spec.md         # WHAT and WHY
-│       └── design.md       # HOW (optional, for established patterns)
+│       └── design.md       # HOW (optional)
 └── changes/                # Proposed changes
     ├── [change-name]/      # Descriptive change identifier
-    │   ├── proposal.md     # Why, what, and impact
-    │   ├── tasks.md        # Implementation checklist
-    │   ├── design.md       # Technical decisions (optional)
-    │   └── specs/          # Complete future state
+    │   ├── proposal.md     # Problem framing
+    │   ├── design.md       # Technical blueprint (optional)
+    │   ├── tasks.md        # Implementation plan
+    │   ├── decisions.md    # Q&A from exploration (optional)
+    │   └── specs/          # Delta specs
     │       └── [capability]/
-    │           └── spec.md # Clean markdown (no diff syntax)
+    │           └── spec.md # Delta operations only
     └── archive/            # Completed changes
         └── YYYY-MM-DD-[name]/
 ```
 
-### Requirement: Structured Format for Behavioral Specs
+### Capability Naming
 
-Behavioral specifications SHALL use a structured format with consistent section headers and keywords to ensure visual consistency and parseability.
+Capabilities use verb-noun patterns (e.g., `user-auth`, `payment-capture`), hyphenated lowercase names, singular focus (one responsibility per capability), and a flat structure under `specs/`.
 
-#### Scenario: Writing requirement sections
+### Core Principles
 
-- **WHEN** documenting a requirement in a behavioral specification
-- **THEN** use a level-3 heading with format `### Requirement: [Name]`
-- **AND** immediately follow with a SHALL statement describing core behavior
-- **AND** keep requirement names descriptive and under 50 characters
+Specs reflect what is currently built and deployed. Changes contain proposals for what should change. AI drives the documentation process. Specs are living documentation kept in sync with deployed code.
 
-#### Scenario: Documenting scenarios
+## Proposal Format
 
-- **WHEN** documenting specific behaviors or use cases
-- **THEN** use level-4 headings with format `#### Scenario: [Description]`
-- **AND** use bullet points with bold keywords for steps:
-  - **GIVEN** for initial state (optional)
-  - **WHEN** for conditions or triggers
-  - **THEN** for expected outcomes
-  - **AND** for additional outcomes or conditions
+### Proposal Structure
 
-#### Scenario: Adding implementation details
+Proposals use four required sections in this order:
 
-- **WHEN** a step requires additional detail
-- **THEN** use sub-bullets under the main step
-- **AND** maintain consistent indentation
-  - Sub-bullets provide examples or specifics
-  - Keep sub-bullets concise
+1. `## Problem` — what's broken or missing, and why it matters
+2. `## Constraints` — hard boundaries, technical limits, what can't change
+3. `## Success Criteria` — observable outcomes when done, user-visible statements
+4. `## Non-goals` — what is explicitly not being built
 
-### Requirement: Header-Based Requirement Identification
+All four sections are required. Empty or comment-only sections fail validation. No additional top-level `##` sections are allowed. `Problem` and `Success Criteria` have stronger minimum content thresholds.
 
-Requirement headers SHALL serve as unique identifiers for programmatic matching between current specs and proposed changes.
+### When Proposals Are Required
 
-#### Scenario: Matching requirements programmatically
+A proposal is created for new features or capabilities, breaking changes, architecture or pattern changes, performance optimizations that change behavior, and security updates affecting access patterns.
 
-- **WHEN** processing delta changes
-- **THEN** use the `### Requirement: [Name]` header as the unique identifier
-- **AND** match using normalized headers: `normalize(header) = trim(header)`
-- **AND** compare headers with case-sensitive equality after normalization
+A proposal is not required for bug fixes restoring intended behavior, typos or formatting fixes, non-breaking dependency updates, adding tests for existing behavior, or documentation clarifications.
 
-#### Scenario: Handling requirement renames
+## Design Format
 
-- **WHEN** renaming a requirement
-- **THEN** use a special `## RENAMED Requirements` section
-- **AND** specify both old and new names explicitly:
-  ```markdown
-  ## RENAMED Requirements
-  - FROM: `### Requirement: Old Name`
-  - TO: `### Requirement: New Name`
-  ```
-- **AND** if content also changes, include under MODIFIED using the NEW header
+### Design Structure
 
-#### Scenario: Validating header uniqueness
+Design files use these sections:
 
-- **WHEN** creating or modifying requirements
-- **THEN** ensure no duplicate headers exist within a spec
-- **AND** validation tools SHALL flag duplicate headers as errors
+1. `## Overview` — one paragraph describing what and why
+2. `## Architecture` — diagrams, data flow, system structure
+3. `## Detailed Design` — organized by concept: data models, APIs, integration points
+4. `## Non-goals` — what this design explicitly avoids
 
-### Requirement: Change Storage Convention
+An optional `## Decisions` section captures implementation-relevant choices that need to stay visible in the blueprint.
 
-Change proposals SHALL store only the additions, modifications, and removals to specifications, not complete future states.
+## Task Format
 
-#### Scenario: Creating change proposals with additions
+### Task Structure
 
-- **WHEN** creating a change proposal that adds new requirements
-- **THEN** include only the new requirements under `## ADDED Requirements`
-- **AND** each requirement SHALL include its complete content
-- **AND** use the standard structured format for requirements and scenarios
+Each task is a `###` heading with this format:
 
-#### Scenario: Creating change proposals with modifications  
+```
+### Task N: Name (type)
 
-- **WHEN** creating a change proposal that modifies existing requirements
-- **THEN** include the modified requirements under `## MODIFIED Requirements`
-- **AND** use the same header text as in the current spec (normalized)
-- **AND** include the complete modified requirement (not a diff)
-- **AND** optionally annotate what changed with inline comments like `← (was X)`
+What to implement, where, and why.
 
-#### Scenario: Creating change proposals with removals
-
-- **WHEN** creating a change proposal that removes requirements
-- **THEN** list them under `## REMOVED Requirements`
-- **AND** use the normalized header text for identification
-- **AND** include reason for removal
-- **AND** document any migration path if applicable
-
-The `changes/[name]/specs/` directory SHALL contain:
-- Delta files showing only what changes
-- Sections for ADDED, MODIFIED, REMOVED, and RENAMED requirements
-- Normalized header matching for requirement identification
-- Complete requirements using the structured format
-- Clear indication of change type for each requirement
-
-#### Scenario: Using standard output symbols
-
-- **WHEN** displaying delta operations in CLI output
-- **THEN** use these standard symbols:
-  - `+` for ADDED (green)
-  - `~` for MODIFIED (yellow)
-  - `-` for REMOVED (red)
-  - `→` for RENAMED (cyan)
-
-### Requirement: Archive Process Enhancement
-
-The archive process SHALL programmatically apply delta changes to current specifications using header-based matching.
-
-#### Scenario: Archiving changes with deltas
-
-- **WHEN** archiving a completed change
-- **THEN** the archive command SHALL:
-  1. Parse RENAMED sections first and apply renames
-  2. Parse REMOVED sections and remove by normalized header match
-  3. Parse MODIFIED sections and replace by normalized header match (using new names if renamed)
-  4. Parse ADDED sections and append new requirements
-- **AND** validate that all MODIFIED/REMOVED headers exist in current spec
-- **AND** validate that ADDED headers don't already exist
-- **AND** generate the updated spec in the main specs/ directory
-
-#### Scenario: Handling conflicts during archive
-
-- **WHEN** delta changes conflict with current spec state
-- **THEN** the archive command SHALL report specific conflicts
-- **AND** require manual resolution before proceeding
-- **AND** provide clear guidance on resolving conflicts
-
-### Requirement: Proposal Format
-
-Proposals SHALL explicitly document all changes with clear from/to comparisons.
-
-#### Scenario: Documenting changes
-
-- **WHEN** documenting what changes
-- **THEN** the proposal SHALL explicitly describe each change:
-
-```markdown
-**[Section or Behavior Name]**
-- From: [current state/requirement]
-- To: [future state/requirement]
-- Reason: [why this change is needed]
-- Impact: [breaking/non-breaking, who's affected]
+**Files:** paths
+**Acceptance criteria:**
+- criterion
 ```
 
-This explicit format compensates for not having inline diffs and ensures reviewers understand exactly what will change.
+The type annotation (`feature`, `refactoring`) tells the implementing agent whether it's building new or restructuring existing code. Completion is marked by appending ` — done` to the task heading.
 
-### Requirement: Change Review
+## Decisions Format
 
-The system SHALL support multiple methods for reviewing proposed changes.
+### Decisions Structure
 
-#### Scenario: Reviewing changes
+The decisions artifact captures Q&A from the exploration and proposal phase. Each entry contains a question, options with the chosen option bolded, and an answer with rationale:
 
-- **WHEN** reviewing proposed changes
-- **THEN** reviewers can compare using:
-- GitHub PR diff view when changes are committed
-- Command line: `diff -u specs/[capability]/spec.md changes/[name]/specs/[capability]/spec.md`
-- Any visual diff tool comparing current vs future state
-
-### Requirement: Structured Format Adoption
-
-Behavioral specifications SHALL adopt the structured format with `### Requirement:` and `#### Scenario:` headers as the default.
-
-#### Scenario: Use structured headings for behavior
-
-- **WHEN** documenting behavioral requirements
-- **THEN** use `### Requirement:` for requirements
-- **AND** use `#### Scenario:` for scenarios with bold WHEN/THEN/AND keywords
-
-### Requirement: Verb–Noun CLI Command Structure
-OpenSpec CLI design SHALL use verbs as top-level commands with nouns provided as arguments or flags for scoping.
-
-#### Scenario: Verb-first command discovery
-- **WHEN** a user runs a command like `openspec list`
-- **THEN** the verb communicates the action clearly
-- **AND** nouns refine scope via flags or arguments (e.g., `--changes`, `--specs`)
-
-#### Scenario: Backward compatibility for noun commands
-- **WHEN** users run noun-prefixed commands such as `openspec spec ...` or `openspec change ...`
-- **THEN** the CLI SHALL continue to support them for at least one release
-- **AND** display a deprecation warning that points to verb-first alternatives
-
-#### Scenario: Disambiguation guidance
-- **WHEN** item names are ambiguous between changes and specs
-- **THEN** `openspec show` and `openspec validate` SHALL accept `--type spec|change`
-- **AND** the help text SHALL document this clearly
-
-## Core Principles
-
-The system SHALL follow these principles:
-- Specs reflect what IS currently built and deployed
-- Changes contain proposals for what SHOULD be changed
-- AI drives the documentation process
-- Specs are living documentation kept in sync with deployed code
-
-## Directory Structure
-
-### Requirement: Project Structure
-
-An OpenSpec project SHALL maintain a consistent directory structure for specifications and changes.
-
-#### Scenario: Initializing project structure
-
-- **WHEN** an OpenSpec project is initialized
-- **THEN** it SHALL have this structure:
 ```
-openspec/
-├── project.md              # Project-specific context
-├── AGENTS.md               # AI assistant instructions
-├── specs/                  # Current deployed capabilities
-│   └── [capability]/       # Single, focused capability
-│       ├── spec.md         # WHAT and WHY
-│       └── design.md       # HOW (optional, for established patterns)
-└── changes/                # Proposed changes
-    ├── [change-name]/      # Descriptive change identifier
-    │   ├── proposal.md     # Why, what, and impact
-    │   ├── tasks.md        # Implementation checklist
-    │   ├── design.md       # Technical decisions (optional)
-    │   └── specs/          # Complete future state
-    │       └── [capability]/
-    │           └── spec.md # Clean markdown (no diff syntax)
-    └── archive/            # Completed changes
-        └── YYYY-MM-DD-[name]/
+## Topic
+
+**Q:** Question that came up
+
+- Option A
+- **Option B** — chosen option
+- Option C
+
+**A:** Answer with rationale
 ```
-
-## Specification Format
-
-### Requirement: Structured Format for Behavioral Specs
-
-Behavioral specifications SHALL use a structured format with consistent section headers and keywords to ensure visual consistency and parseability.
-
-#### Scenario: Writing requirement sections
-
-- **WHEN** documenting a requirement in a behavioral specification
-- **THEN** use a level-3 heading with format `### Requirement: [Name]`
-- **AND** immediately follow with a SHALL statement describing core behavior
-- **AND** keep requirement names descriptive and under 50 characters
-
-#### Scenario: Documenting scenarios
-
-- **WHEN** documenting specific behaviors or use cases
-- **THEN** use level-4 headings with format `#### Scenario: [Description]`
-- **AND** use bullet points with bold keywords for steps:
-  - **GIVEN** for initial state (optional)
-  - **WHEN** for conditions or triggers
-  - **THEN** for expected outcomes
-  - **AND** for additional outcomes or conditions
-
-#### Scenario: Adding implementation details
-
-- **WHEN** a step requires additional detail
-- **THEN** use sub-bullets under the main step
-- **AND** maintain consistent indentation
-  - Sub-bullets provide examples or specifics
-  - Keep sub-bullets concise
-
-## Change Storage Convention
-
-### Requirement: Header-Based Requirement Identification
-
-Requirement headers SHALL serve as unique identifiers for programmatic matching between current specs and proposed changes.
-
-#### Scenario: Matching requirements programmatically
-
-- **WHEN** processing delta changes
-- **THEN** use the `### Requirement: [Name]` header as the unique identifier
-- **AND** match using normalized headers: `normalize(header) = trim(header)`
-- **AND** compare headers with case-sensitive equality after normalization
-
-#### Scenario: Handling requirement renames
-
-- **WHEN** renaming a requirement
-- **THEN** use a special `## RENAMED Requirements` section
-- **AND** specify both old and new names explicitly:
-  ```markdown
-  ## RENAMED Requirements
-  - FROM: `### Requirement: Old Name`
-  - TO: `### Requirement: New Name`
-  ```
-- **AND** if content also changes, include under MODIFIED using the NEW header
-
-#### Scenario: Validating header uniqueness
-
-- **WHEN** creating or modifying requirements
-- **THEN** ensure no duplicate headers exist within a spec
-- **AND** validation tools SHALL flag duplicate headers as errors
-
-### Requirement: Change Storage Convention
-
-Change proposals SHALL store only the additions, modifications, and removals to specifications, not complete future states.
-
-#### Scenario: Creating change proposals with additions
-
-- **WHEN** creating a change proposal that adds new requirements
-- **THEN** include only the new requirements under `## ADDED Requirements`
-- **AND** each requirement SHALL include its complete content
-- **AND** use the standard structured format for requirements and scenarios
-
-#### Scenario: Creating change proposals with modifications  
-
-- **WHEN** creating a change proposal that modifies existing requirements
-- **THEN** include the modified requirements under `## MODIFIED Requirements`
-- **AND** use the same header text as in the current spec (normalized)
-- **AND** include the complete modified requirement (not a diff)
-- **AND** optionally annotate what changed with inline comments like `← (was X)`
-
-#### Scenario: Creating change proposals with removals
-
-- **WHEN** creating a change proposal that removes requirements
-- **THEN** list them under `## REMOVED Requirements`
-- **AND** use the normalized header text for identification
-- **AND** include reason for removal
-- **AND** document any migration path if applicable
-
-The `changes/[name]/specs/` directory SHALL contain:
-- Delta files showing only what changes
-- Sections for ADDED, MODIFIED, REMOVED, and RENAMED requirements
-- Normalized header matching for requirement identification
-- Complete requirements using the structured format
-- Clear indication of change type for each requirement
-
-#### Scenario: Using standard output symbols
-
-- **WHEN** displaying delta operations in CLI output
-- **THEN** use these standard symbols:
-  - `+` for ADDED (green)
-  - `~` for MODIFIED (yellow)
-  - `-` for REMOVED (red)
-  - `→` for RENAMED (cyan)
-
-### Requirement: Archive Process Enhancement
-
-The archive process SHALL programmatically apply delta changes to current specifications using header-based matching.
-
-#### Scenario: Archiving changes with deltas
-
-- **WHEN** archiving a completed change
-- **THEN** the archive command SHALL:
-  1. Parse RENAMED sections first and apply renames
-  2. Parse REMOVED sections and remove by normalized header match
-  3. Parse MODIFIED sections and replace by normalized header match (using new names if renamed)
-  4. Parse ADDED sections and append new requirements
-- **AND** validate that all MODIFIED/REMOVED headers exist in current spec
-- **AND** validate that ADDED headers don't already exist
-- **AND** generate the updated spec in the main specs/ directory
-
-#### Scenario: Handling conflicts during archive
-
-- **WHEN** delta changes conflict with current spec state
-- **THEN** the archive command SHALL report specific conflicts
-- **AND** require manual resolution before proceeding
-- **AND** provide clear guidance on resolving conflicts
-
-### Requirement: Proposal Format
-
-Proposals SHALL explicitly document all changes with clear from/to comparisons.
-
-#### Scenario: Documenting changes
-
-- **WHEN** documenting what changes
-- **THEN** the proposal SHALL explicitly describe each change:
-
-```markdown
-**[Section or Behavior Name]**
-- From: [current state/requirement]
-- To: [future state/requirement]
-- Reason: [why this change is needed]
-- Impact: [breaking/non-breaking, who's affected]
-```
-
-This explicit format compensates for not having inline diffs and ensures reviewers understand exactly what will change.
 
 ## Change Lifecycle
 
-The change process SHALL follow these states:
+### Lifecycle States
 
-1. **Propose**: AI creates change with future state specs and explicit proposal
-2. **Review**: Humans review proposal and future state
-3. **Approve**: Change is approved for implementation
-4. **Implement**: Follow tasks.md checklist (can span multiple PRs)
-5. **Deploy**: Changes are deployed to production
-6. **Update**: Specs in `specs/` are updated to match deployed reality
-7. **Archive**: Change is moved to `archive/YYYY-MM-DD-[name]/`
+The artifact dependency chain is: `proposal → design → tasks → specs`. The optional `decisions.md` is a sidecar produced during the proposal phase.
 
-## Viewing Changes
+The change process follows these states:
 
-### Requirement: Change Review
+1. **Propose** — frame the problem, explore decisions, define success criteria
+2. **Design** — create the technical blueprint
+3. **Implement** — follow the task plan (can span multiple PRs)
+4. **Spec** — write delta specs capturing the behavioral changes
+5. **Deploy** — changes are deployed to production
+6. **Update** — specs in `specs/` are updated via archive to match deployed reality
+7. **Archive** — change is moved to `archive/YYYY-MM-DD-[name]/`
 
-The system SHALL support multiple methods for reviewing proposed changes.
+A change containing only proposal, design, and tasks artifacts (no spec deltas yet) is valid. Delta enforcement activates once spec artifacts are present.
 
-#### Scenario: Reviewing changes
+## CLI Conventions
 
-- **WHEN** reviewing proposed changes
-- **THEN** reviewers can compare using:
-- GitHub PR diff view when changes are committed
-- Command line: `diff -u specs/[capability]/spec.md changes/[name]/specs/[capability]/spec.md`
-- Any visual diff tool comparing current vs future state
+### Verb-Noun Command Structure
 
-The system relies on tools to generate diffs rather than storing them.
+The CLI uses verbs as top-level commands with nouns as arguments or flags for scoping. For example, `openspec list` communicates the action, and `--changes` or `--specs` refines scope.
 
-## Capability Naming
+### Disambiguation
 
-Capabilities SHALL use:
-- Verb-noun patterns (e.g., `user-auth`, `payment-capture`)
-- Hyphenated lowercase names
-- Singular focus (one responsibility per capability)
-- No nesting (flat structure under `specs/`)
-
-## When Changes Require Proposals
-
-A proposal SHALL be created for:
-- New features or capabilities
-- Breaking changes to existing behavior
-- Architecture or pattern changes
-- Performance optimizations that change behavior
-- Security updates affecting access patterns
-
-A proposal is NOT required for:
-- Bug fixes restoring intended behavior
-- Typos or formatting fixes
-- Non-breaking dependency updates
-- Adding tests for existing behavior
-- Documentation clarifications
-
-## Why This Approach
-
-Clean future state storage provides:
-- **Readability**: No diff syntax pollution
-- **AI-compatibility**: Standard markdown that AI tools understand
-- **Simplicity**: No special parsing or processing needed
-- **Tool-agnostic**: Any diff tool can show changes
-- **Clear intent**: Explicit proposals document reasoning
-
-The structured format adds:
-- **Visual Consistency**: Requirement and Scenario prefixes make sections instantly recognizable
-- **Parseability**: Consistent structure enables tooling and automation
-- **Gradual Adoption**: Existing specs can migrate incrementally
+When item names are ambiguous between changes and specs, `openspec show` and `openspec validate` accept `--type spec|change`. Help text documents this clearly.

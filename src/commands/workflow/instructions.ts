@@ -17,6 +17,7 @@ import {
 import {
   validateChangeExists,
   validateSchemaExists,
+  parseTaskItems,
   type TaskItem,
   type ApplyInstructions,
 } from './shared.js';
@@ -213,28 +214,10 @@ export function printInstructionsText(instructions: ArtifactInstructions, isBloc
 
 /**
  * Parses tasks.md content and extracts task items with their completion status.
+ * Delegates to the shared parser which supports both heading-based and checkbox formats.
  */
 function parseTasksFile(content: string): TaskItem[] {
-  const tasks: TaskItem[] = [];
-  const lines = content.split('\n');
-  let taskIndex = 0;
-
-  for (const line of lines) {
-    // Match checkbox patterns: - [ ] or - [x] or - [X]
-    const checkboxMatch = line.match(/^[-*]\s*\[([ xX])\]\s*(.+)\s*$/);
-    if (checkboxMatch) {
-      taskIndex++;
-      const done = checkboxMatch[1].toLowerCase() === 'x';
-      const description = checkboxMatch[2].trim();
-      tasks.push({
-        id: `${taskIndex}`,
-        description,
-        done,
-      });
-    }
-  }
-
-  return tasks;
+  return parseTaskItems(content);
 }
 
 /**

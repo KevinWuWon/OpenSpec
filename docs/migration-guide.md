@@ -477,7 +477,7 @@ When determining which schema to use, OPSX checks in order:
 
 | Schema | Artifacts | Best For |
 |--------|-----------|----------|
-| `spec-driven` | proposal → specs → design → tasks | Most projects |
+| `spec-driven` | proposal → design → tasks → specs | Most projects |
 
 List all available schemas:
 

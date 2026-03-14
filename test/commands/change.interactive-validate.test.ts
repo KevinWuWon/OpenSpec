@@ -15,7 +15,7 @@ describe('change validate (interactive behavior)', () => {
 
   beforeEach(async () => {
     await fs.mkdir(changesDir, { recursive: true });
-    const content = `# Change: Demo\n\n## Why\nBecause reasons that are sufficiently long.\n\n## What Changes\n- **spec-x:** Add something`;
+    const content = `# Change: Demo\n\n## Problem\nBecause reasons that are sufficiently long enough to pass validation checks.\n\n## Constraints\nMust not break existing behavior.\n\n## Success Criteria\nThe spec-x capability is added and all existing tests continue to pass.\n\n## Non-goals\nNo other capabilities are affected.`;
     await fs.mkdir(path.join(changesDir, 'demo'), { recursive: true });
     await fs.writeFile(path.join(changesDir, 'demo', 'proposal.md'), content, 'utf-8');
   });
